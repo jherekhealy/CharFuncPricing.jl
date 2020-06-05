@@ -5,9 +5,9 @@
 | [![Build Status](https://travis-ci.org/jherekhealy/CharFuncPricing.jl.svg?branch=master)](https://travis-ci.org/jherekhealy/CharFuncPricing.jl) | [![codecov.io](http://codecov.io/github/jherekhealy/CharFuncPricing.jl/coverage.svg?branch=master)](http://codecov.io/github/jherekhealy/CharFuncPricing.jl?branch=master) |
 
 
-Julia package to provide reference European option prices for stochastic volatility models with a known characteristic function, such as the Heston stochastic volatility model.
+Julia package to provide reference European option prices for stochastic volatility models with a known characteristic function, such as the Heston stochastic volatility model. For the Heston model, a function provides the first, second and fourth cumulants through analytical formulas.
 
- The code is not meant for production purpose and does not cater for corner cases. It however supports arbitrary precision via the Nemo package.
+The code is not meant for production purpose and does not cater for corner cases. It however supports arbitrary precision via the Nemo package.
 
 ## Installation
 
@@ -27,7 +27,7 @@ Start by creating a `HestonParams` structure, which represents the parameters of
 params = HestonParams(v0, κ, θ, ρ, σ)
 ```
 
-Then make a `CosCharFuncPricer` structure via `makeCosCharFuncPricer`. This function will store the relevant `m` values of the characteristic function for the range [a,b] defined by `l` deviations using the cumulants rule a = c_1 - l*sqrt(c_2+sqrt(c_4)), b = c_1 + l*sqrt(c_2+sqrt(c_4)).
+Then make a `CosCharFuncPricer` structure via `makeCosCharFuncPricer`. This function will store the relevant `m` values of the characteristic function for the range [a,b] defined by `l` deviations using the cumulants rule a = c1 - l \* sqrt(c2+sqrt(c4)), b = c_1 + l \* sqrt(c2+sqrt(c4)).
 ```julia
 pricer = makeCosCharFuncPricer(Complex, Float64, Float64(MathConstants.pi), params, τ, m, l)  
 ```
@@ -38,11 +38,46 @@ priceEuropean(pricer, false, strike, forward, df)
 ```
 The second parameter specifies whether we want to price a call (true) or a put (false). The last parameter specifies the discount factor to maturity.
 
-## Nemo Usage
-## Examples
-
-
+The first, second and fourth cumulants are given by
 ```julia
+c1,c2,c4 = computeCumulants(params,τ)
+```
+
+## Nemo Usage
+The only difference is to make sure the parameters are of ArbField type (real arbitrary precision), the function `makeCosCharFuncPricer` should also be called on the AcbField type.
+```julia
+using Nemo
+R = ArbField(256)
+CC = AcbField(256)
+pricer = makeCosCharFuncPricer(CC, R, const_pi(R), params, τ, m, l)
+```
+
+
+## Examples
+### Float64
+```julia
+r=0.01
+q=0.02
+κ=4.0
+θ=0.25
+σ=1.0
+ρ=-0.5
+v0=0.04
+τ = 1.0
+spot = 100.0
+strikes = 80.0
+spot *= exp((r - q) * τ)
+df = exp(-r * τ)
+params = HestonParams(v0, κ, θ, ρ, σ)
+l = 32
+m = 1024
+pricer = makeCosCharFuncPricer(Complex, Float64, Float64(MathConstants.pi), params, τ, m, l)
+priceEuropean(pricer, false, strike, spot, df)
+```
+
+### Nemo
+```julia
+using Nemo
 using CharFuncPricing
 
 R = ArbField(256)
@@ -66,8 +101,18 @@ pricer = makeCosCharFuncPricer(CC, R, const_pi(R), params, τ, m, l)
 priceEuropean(pricer, isCall, strike, spot, df)
 ```
 
-### Plot
 
 ## Testing
 
 In a Julia REPL session, enter `pkg` mode and run `test CharFuncPricing`.
+
+Unit tests verify the call and put option prices against the [reference prices](https://financepress.com/2019/02/15/heston-model-reference-prices/) of Alan Lewis in double and arbitrary precision. In fact, the implementation here gives more precise results (minimum accuracy of 1e-60).
+
+Cumulants are checked against a Taylor series algorithmic differentiation.
+
+
+## References
+
+Fang, F. and Oosterlee, C. W. (2008) [A novel pricing method for European options based on Fourier-cosine series
+expansions](https://epubs.siam.org/doi/abs/10.1137/080718061)
+Le Floc'h, F. (2018) [More Robust Pricing of European Options Based on Fourier Cosine Series Expansions](https://arxiv.org/abs/2005.13248)

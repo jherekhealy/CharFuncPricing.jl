@@ -30,6 +30,7 @@ function makeCosCharFuncPricer(CC, R, pi::T, p::HestonParams{T}, τ::T, m::Int, 
     return CosCharFuncPricer(τ, a, b, uk, phi, pi)
 end
 
+#we adopt here the alternative formula of LeFloch "More Robust Pricing of European Options Based on Fourier Cosine Series Expansions"
 function priceEuropean(p::CosCharFuncPricer{T,CT}, isCall::Bool, strike::T, forward::T, discountDf::T) where {T,CT}
     pricePut = 0
     x = log(forward / strike)

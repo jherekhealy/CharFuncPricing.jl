@@ -33,25 +33,6 @@ function evaluateLogCharFunc(CC, p::HestonParams, z::CT, τ::T) where {T,CT}
     return A + B * v0
 end
 
-# function evaluateLogCharFunc(CC::Complex{T}, p::HestonParams, z::CT, τ::T) where {T,CT}
-#     v0 = p.v0
-#     κ = p.κ
-#     θ = p.θ
-#     ρ = p.ρ
-#     σ = p.σ
-#     cc1 = 1im
-#     α = -(z * (z + cc1)) * σ^2
-#     β = κ - cc1 * σ * ρ * z
-#     D = sqrt(β^2 - α)
-#     G = (β - D) / (β + D)
-#     eDT = exp(-D * τ)
-#     l = log((1 - G * eDT) / (1 - G))
-#     A = ((β - D) * τ - 2 * l) * κ * θ / σ^2
-#     B = (1 - eDT) / (1 - G * eDT) * (β - D) / σ^2
-#     return A + B * v0
-# end
-
-
 function computeCumulants(p::HestonParams{T}, τ::T) where {T}
     lambda = p.κ
     ubar = p.θ
@@ -136,14 +117,3 @@ end
 #the cumulants are checked against an algo differentiation taylor formula. Formula for fourth cumulant given.
 #following is for additional test
 #This can thus be considered as a reference implementation.
-# using TaylorSeries
-# t = Taylor1(Float64,4)
-# c1,c2,c4 = computeCumulants(params,0.1)
-# (-0.00022072277774848347, 0.0004425043757640371, 6.191524156420533e-8)
-#
-# julia> evaluateLogCharFunc(1.0im,params,t,0.1)
-#  - ( 0.00022072277774848342 im ) t  - ( 0.00022125218788201253 ) t² + ( 5.319804430708509e-7 im ) t³  + ( 2.579801732746249e-9 ) t⁴ + 𝒪(t⁵)
-#
-# julia> c4/(2*3*4)
-# 2.579801731841889e-9
-#Nemo only in unit tests.
