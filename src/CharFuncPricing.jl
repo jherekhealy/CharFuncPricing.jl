@@ -20,8 +20,6 @@ function makeCosCharFuncPricer(CC, R, pi::T, p::HestonParams{T}, τ::T, m::Int, 
     b = c1 + l * sqrt(abs(c2))
 
     phi = zeros(CC, m)
-    #phi[1] = evaluateCharFunc(p,0.0,τ)
-    #V = collect(range(vmin,stop=vmax,length=L))
     for i = 1:m
         z = i * pi / (b - a)
         phi[i] = evaluateCharFunc(CC, p, z, τ)
@@ -61,7 +59,6 @@ function priceEuropean(p::CosCharFuncPricer{T,CT}, isCall::Bool, strike::T, forw
             uk[i] = coeff
         end
         x = 0 #log(forward / f)
-
         phi0 = 1 #real(cfi.phi[0])
         sumPut = (phi0) * uk0 / 2
         for k = 1:length(uk)

@@ -110,10 +110,3 @@ function computeCumulants(p::HestonParams{T}, τ::T) where {T}
             (lambda * rho * eta - eta2 / 4 - lambda2)))
     return c1, c2, c4
 end
-
-#The idea is not to have the fastest implementation, but one that allows a very high accuracy and able to provide reference numbers.
-#The code also support pure Float64 calculations, and should then be quite fast, although not optimized for this.
-#In fact the calculation of a price with 64bit and 256 is ... options/s
-#the cumulants are checked against an algo differentiation taylor formula. Formula for fourth cumulant given.
-#following is for additional test
-#This can thus be considered as a reference implementation.

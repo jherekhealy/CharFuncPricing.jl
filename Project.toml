@@ -1,7 +1,7 @@
 name = "CharFuncPricing"
 uuid = "1fb851c3-be98-478b-9657-166436d5cfc1"
 authors = ["Jherek Healy <jherekhealy@protonmail.com>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 

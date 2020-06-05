@@ -27,7 +27,7 @@ Start by creating a `HestonParams` structure, which represents the parameters of
 params = HestonParams(v0, κ, θ, ρ, σ)
 ```
 
-Then make a `CosCharFuncPricer` structure via `makeCosCharFuncPricer`. This function will store the relevant `m` values of the characteristic function for the range [a,b] defined by `l` deviations using the cumulants rule a = c1 - l \* sqrt(c2+sqrt(c4)), b = c1 + l \* sqrt(c2+sqrt(c4)).
+Then make a `CosCharFuncPricer` structure via `makeCosCharFuncPricer`. This function will store the relevant `m` values of the characteristic function for the range [a,b] defined by `l` deviations using the cumulants rule `a = c1 - l * sqrt(c2+sqrt(c4))`, `b = c1 + l * sqrt(c2+sqrt(c4))`.
 ```julia
 pricer = makeCosCharFuncPricer(Complex, Float64, Float64(MathConstants.pi), params, τ, m, l)  
 ```
