@@ -47,7 +47,7 @@ function computeCumulants(p::HestonParams{T}, τ::T) where {T}
         return c1, c2, c4
     elseif lambda == 0
         c1 = -u0 * term / 2
-        c2 = u0 * term(1 + term * term * eta * (eta * term / 12 - rho / 2))
+        c2 = u0 * term * (1 + term * term * eta * (eta * term / 12 - rho / 2))
         c4 =
             u0 *
             eta^2 *

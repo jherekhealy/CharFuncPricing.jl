@@ -109,3 +109,20 @@ end
         #push!(refCalls,price)
     end
 end
+
+@testset "ZeroKappa" begin
+    R = ArbField(256)
+    CC = AcbField(256)
+    κ = R(0.0)
+    θ = R(QQ(1, 4)); σ = R(1.0); v0 = R(QQ(4, 100)); ρ = R(-0.5); τ = R(1.0)
+    params = HestonParams(v0, κ, θ, ρ, σ)
+    cumulantsZ = computeCumulants(params, τ)
+    κ = R(QQ(1, 100))
+    params = HestonParams(v0, κ, θ, ρ, σ)
+    cumulants = computeCumulants(params, τ)
+
+    for (cz,c) in zip(cumulantsZ, cumulants)
+        println(cz," ",c)
+        @test isapprox(Float64(cz), Float64(c), rtol = 1e-1)
+    end
+end
