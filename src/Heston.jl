@@ -1,5 +1,3 @@
-using Nemo
-
 export HestonParams, evaluateCharFunc, evaluateLogCharFunc, computeCumulants
 
 struct HestonParams{T}
