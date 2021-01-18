@@ -1,19 +1,18 @@
 name = "CharFuncPricing"
 uuid = "1fb851c3-be98-478b-9657-166436d5cfc1"
 authors = ["Jherek Healy <jherekhealy@protonmail.com>"]
-version = "0.1.5"
+version = "0.1.6"
 
 [deps]
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+
+[compat]
+julia = "1"
 
 [extras]
 Nemo = "2edaba10-b0f1-5616-af89-8c11ac63239a"
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TaylorSeries = "6aa5eb33-94cf-58f4-a9d0-e4b2c4fc25ea"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "Nemo","TaylorSeries"]
-
-[compat]
-#Nemo = "^0.18.0"
-#TaylorSeries="^0.10.0"
-julia = "1"
+test = ["Test", "Nemo", "TaylorSeries"]

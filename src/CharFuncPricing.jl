@@ -7,8 +7,8 @@ struct CosCharFuncPricer{T}
     τ::T
     a::T
     b::T
-    uk::Vector{T}
-    phi::Vector{T}
+    uk::Array{T,1}
+    phi::Array{T,1}
     pi::T
 end
 
@@ -18,14 +18,10 @@ function makeCosCharFuncPricer(CC, R, pi::T, p::HestonParams{T}, τ::T, m::Int, 
     c2 = c2 + sqrt(abs(c4))
     a = c1 - l * sqrt(abs(c2))
     b = c1 + l * sqrt(abs(c2))
-    phi = zeros(R, m)
-    for i = 1:m
-        z = i * pi / (b - a)
-        phiz = evaluateCharFunc(CC, p, z, τ)
-        sz = sin(-z * a)
-        cz = cos(-z * a)
-        phi[i] = real(phiz) * cz - imag(phiz) * sz
-    end
+    # println("a ",a," b ",b)
+    z = (1:m) * pi / (b - a)
+    phiz = map(z-> evaluateCharFunc(CC, p, z, τ),z)
+    phi  = @. real(phiz) * cos(-z*a) - imag(phiz) * sin(-z*a)
     uk = zeros(R, m)
     return CosCharFuncPricer(τ, a, b, uk, phi, pi)
 end
@@ -53,9 +49,8 @@ function priceEuropean(p::CosCharFuncPricer{T}, isCall::Bool, strike::T, forward
         for i = 1:length(uk)
             z = i * pi / (b - a)
             kPid = (logStrike - a) * z
-            sk = sin(kPid)
-            ck = cos(kPid)
-            chi = 1 / (1 + z * z) * (ck * estrike - 1 * ea + z * (sk * estrike))
+            sk,ck = sincos(kPid)
+            chi = 1 / (1 + z^2) * (ck * estrike - 1 * ea + z * (sk * estrike))
             psi = sk / z
             coeff = 2 / (b - a) * (-chi + estrike * psi)
             uk[i] = coeff
