@@ -47,7 +47,7 @@ function priceEuropean(
     local pricePut
     x = log(forward / strike)
     if x >= -p.a && x >= p.b
-        pricePut = zero(p.field)
+        pricePut = 0
     elseif x <= p.a || x <= -p.b
         pricePut = discountDf * (strike - forward)
     else
@@ -71,7 +71,7 @@ function priceEuropean(
             coeff = 2 / (b - a) * (-chi + estrike * psi)
             uk[i] = coeff
         end
-        phi0 = one(p.field) #real(cfi.phi[0])
+        phi0 = 1
         sumPut = phi0 * uk0 / 2
         @inbounds @simd for k = 1:length(uk)
             sumPut += p.phi[k] * p.uk[k]
