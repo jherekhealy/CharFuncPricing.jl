@@ -1,7 +1,7 @@
 using Nemo, CharFuncPricing, Test
 
 include("hestonfloat.jl")
-
+include("schobelzhu.jl")
 #Testing https://financepress.com/2019/02/15/heston-model-reference-prices/
 @testset "AlanSet" begin
     R = ArbField(256)

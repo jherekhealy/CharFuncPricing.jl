@@ -1,91 +1,92 @@
 using CharFuncPricing, Test
 using TaylorSeries
+using StatsBase
+import CharFuncPricing: lambertW
 
+ @testset "LF2y" begin
+    r = 0.0
+    q = 0.0
+    κ = 1.0
+    θ = 0.1
+    σ = 1.0
+    ρ = -0.9
+    v0 = 0.1
+    τ = 2.0
+    spot = 1.0
 
-# @testset "LF2y" begin
-#     r = 0.0
-#     q = 0.0
-#     κ = 1.0
-#     θ = 0.1
-#     σ = 1.0
-#     ρ = -0.9
-#     v0 = 0.1
-#     τ = 2.0
-#     spot = 1.0
-#
-#     # κ = 1.417
-#     # θ = 0.082
-#     # σ = 0.591
-#     # ρ = -0.384
-#     # v0 = 0.073
-#     spot *= exp((r - q) * τ)
-#     df = exp(-r * τ)
-#     params = HestonParams(v0, κ, θ, ρ, σ)
-#     m = 200
-#     l = 8
-#     refPricer = makeCosCharFuncPricer(
-#         Complex,
-#         Float64,
-#         Float64(MathConstants.pi),
-#         params,
-#         τ,
-#         2048*4,
-#         32,
-#     )
-#     pricer =
-#         makeCosCharFuncPricer(Complex, Float64, Float64(MathConstants.pi), params, τ, m, l)
-#     refPrices = Vector{Float64}(undef, 0)
-#     prices = Vector{Float64}(undef, 0)
-#     for strike = 0.4:0.05:1.6
-#         refPrice = priceEuropean(refPricer, false, strike, spot, df)
-#         price = priceEuropean(pricer, false, strike, spot, df)
-#         println(
-#             strike,
-#             " ",
-#             price,
-#             " ",
-#             refPrice,
-#             " ",
-#             price - refPrice,
-#             " ",
-#             price / refPrice - 1,
-#         )
-#         push!(refPrices, refPrice)
-#         push!(prices, price)
-#     end
-#     rmse = rmsd(prices, refPrices)
-#     println("RMSE ", rmse)
-#     @test isless(rmse, 1e-4)
-#     @test isless(1e-5, rmse)
-#     #a somewhat large RMSE is expected, increase m for a workaround
-#     cinf = (params.v0+params.κ*params.θ*τ)/params.σ *sqrt(1-params.ρ^2)
-#     #exp(-cinf*umax) = eps
-#     #2*exp(-cinf*mmax*pi/(b-a))/(mmax*pi) = eps => exp(cinf*mmax*pi/(b-a))*mmax*pi/(b-a)*cinf = 2/eps/(b-a)*cinf => cinf*mmax*pi/(b-a) = lambertW( 2/eps/(b-a)*cinf)
-#     eps = 1e-8
-#     umax = -log(eps)/cinf
-#     mmax = ceil(Int,umax*(pricer.b-pricer.a)/pi)+1
-#     mmax = ceil(Int, lambertW(2*cinf/(eps*(pricer.b-pricer.a)))/(cinf*pi)*(pricer.b-pricer.a))
-#     pricer =
-#         makeCosCharFuncPricer(Complex, Float64, Float64(MathConstants.pi), params, τ, mmax, l)
-#         for (i, strike) = enumerate(0.4:0.05:1.6)
-#             refPrice = refPrices[i]
-#             price = priceEuropean(pricer, false, strike, spot, df)
-#             # println(
-#             #     strike,
-#             #     " ",
-#             #     price,
-#             #     " ",
-#             #     refPrice,
-#             #     " ",
-#             #     price - refPrice,
-#             #     " ",
-#             #     price / refPrice - 1,
-#             # )
-#             prices[i] = price
-#         end
-#         rmse = rmsd(prices, refPrices)
-#         println("RMSE ", rmse)
-# end
+    # κ = 1.417
+    # θ = 0.082
+    # σ = 0.591
+    # ρ = -0.384
+    # v0 = 0.073
+    spot *= exp((r - q) * τ)
+    df = exp(-r * τ)
+    params= HestonParams(v0, κ, θ, ρ, σ)
+    m = 200
+    l = 8
+    refPricer = makeCosCharFuncPricer(
+        Complex,
+        Float64,
+        Float64(MathConstants.pi),
+        params,
+        τ,
+        2048*4,
+        32,
+    )
+    pricer =
+        makeCosCharFuncPricer(Complex, Float64, Float64(MathConstants.pi), params, τ, m, l)
+    refPrices = Vector{Float64}(undef, 0)
+    prices = Vector{Float64}(undef, 0)
+    for strike = 0.4:0.012:1.6
+        refPrice = priceEuropean(refPricer, false, strike, spot, df)
+        price = priceEuropean(pricer, false, strike, spot, df)
+        println(
+            strike,
+            " ",
+            price,
+            " ",
+            refPrice,
+            " ",
+            price - refPrice,
+            " ",
+            price / refPrice - 1,
+        )
+        push!(refPrices, refPrice)
+        push!(prices, price)
+    end
+    rmse = rmsd(prices, refPrices)
+    println("RMSE ", rmse)
+    @test isless(rmse, 1e-4)
+    @test isless(1e-5, rmse)
+    #a somewhat large RMSE is expected, increase m for a workaround
+    cinf = (params.v0+params.κ*params.θ*τ)/params.σ *sqrt(1-params.ρ^2)
+    #exp(-cinf*umax) = eps
+    #2*exp(-cinf*mmax*pi/(b-a))/(mmax*pi) = eps => exp(cinf*mmax*pi/(b-a))*mmax*pi/(b-a)*cinf = 2/eps/(b-a)*cinf => cinf*mmax*pi/(b-a) = lambertW( 2/eps/(b-a)*cinf)
+    eps = 1e-8
+    umax = -log(eps)/cinf
+    mmax = ceil(Int,umax*(pricer.b-pricer.a)/pi)+1
+    mmax = ceil(Int, lambertW(2*cinf/(eps*(pricer.b-pricer.a)))/(cinf*pi)*(pricer.b-pricer.a))
+    pricer =
+        makeCosCharFuncPricer(Complex, Float64, Float64(MathConstants.pi), params, τ, mmax, l)
+        for (i, strike) = enumerate(0.4:0.012:1.6)
+            refPrice = refPrices[i]
+            price = priceEuropean(pricer, false, strike, spot, df)
+            # println(
+            #     strike,
+            #     " ",
+            #     price,
+            #     " ",
+            #     refPrice,
+            #     " ",
+            #     price - refPrice,
+            #     " ",
+            #     price / refPrice - 1,
+            # )
+            prices[i] = price
+        end
+        rmse = rmsd(prices, refPrices)
+        println("RMSE ", rmse)
+ end
 #
 # @testset "LFShortA" begin
 #     r = 0.0
