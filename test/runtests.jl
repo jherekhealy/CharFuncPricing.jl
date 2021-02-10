@@ -1,8 +1,49 @@
 using Nemo, CharFuncPricing, Test
 
-include("hestonfloat.jl")
+#include("hestonfloat.jl")
 include("schobelzhu.jl")
 #Testing https://financepress.com/2019/02/15/heston-model-reference-prices/
+@testset "HestonALSmallPrices" begin
+    R = ArbField(512)
+    CC = AcbField(512)
+    r = R(QQ(0, 100))
+    q = R(QQ(0, 100))
+    κ = R(2)
+    θ = R(QQ(1, 10000))
+    σ = R(QQ(1, 10000))
+    v0 = R(QQ(1, 10000))
+    ρ = R(-0.5)
+    τ = R(0.0025)
+    strike = R(100)
+    spots = [R("100.0001"), R(101), R(110), R(200), R(1000), R(10000)]
+    params = HestonParams{arb}(v0, κ, θ, ρ, σ)
+
+    l = 256 #48
+    m = 1024 * 4 * 16
+    cf = DefaultCharFunc{HestonParams{arb},acb,AcbField}(params, CC)
+    pricer = makeCosCharFuncPricer(cf, τ, m, l)
+    for spot in spots
+        price = priceEuropean(pricer, false, strike, spot, R(1))
+        println(spot, " ", price)
+    end
+
+    κ = big(2.0)
+    θ = big(1.0)/big(10000.0)
+    σ =  big(1.0)/big(10000.0)
+    v0 =  big(1.0)/big(10000.0)
+    ρ = big(-0.5)
+    τ = big(0.0025)
+    strike = big(100.0)
+    spots = [BigFloat("100.0001"), big(101.0), big(110.0), big(200.0), big(1000.0), big(10000.0)]
+    params = HestonParams{BigFloat}(v0, κ, θ, ρ, σ)
+    cf = DefaultCharFunc{HestonParams{BigFloat},Complex{BigFloat},Type{Complex{BigFloat}}}(params, Complex{BigFloat})
+    pricer = makeCosCharFuncPricer(cf, τ, m, l)
+    for spot in spots
+        price = priceEuropean(pricer, false, strike, spot, big(1.0))
+        println(spot, " ", price)
+    end
+end
+
 @testset "AlanSet" begin
     R = ArbField(256)
     CC = AcbField(256)
@@ -34,10 +75,12 @@ include("schobelzhu.jl")
     #refCalls = [R("26.77475874399885422138219285574225503910357048386701361386103443917276629"),R("20.93334900059671038813944533801265637537179175081262590089627586445697497"), R("16.07015491702883427821346666428585588391409596485520659735656933996357944"), R("12.13221151670984486786053477019756486390136373284762736739216920917600154"), R("9.02491348345783563655337545306063342581220268333656291192358152550330896")]
     spot *= exp((r - q) * τ)
     df = exp(-r * τ)
-    params = HestonParams(v0, κ, θ, ρ, σ)
+    params = HestonParams{arb}(v0, κ, θ, ρ, σ)
+
     l = 48
     m = 1024 * 4
-    pricer = makeCosCharFuncPricer(CC, R, const_pi(R), params, τ, m, l)
+    cf = DefaultCharFunc{HestonParams{arb},acb,AcbField}(params, CC)
+    pricer = makeCosCharFuncPricer(cf, τ, m, l)
     for (strike, refCall, refPut) in zip(strikes, alanCalls, alanPuts)
         price = priceEuropean(pricer, false, strike, spot, df)
         println(Float64(strike), " P ", price, " ", price - refPut)
@@ -94,10 +137,15 @@ end
     ]
     spot *= exp((r - q) * τ)
     df = exp(-r * τ)
-    params = HestonParams(v0, κ, θ, ρ, σ)
+    params = HestonParams{arb}(v0, κ, θ, ρ, σ)
     l = 48
     m = 1024 * 4
-    pricer = makeCosCharFuncPricer(CC, R, const_pi(R), params, τ, m, l)
+    pricer = makeCosCharFuncPricer(
+        DefaultCharFunc{HestonParams{arb},acb,AcbField}(params, CC),
+        τ,
+        m,
+        l,
+    )
     for (strike, refCall, refPut) in zip(strikes, alanCalls, alanPuts)
         price = priceEuropean(pricer, false, strike, spot, df)
         println(Float64(strike), " P ", price, " ", price - refPut)
@@ -114,15 +162,19 @@ end
     R = ArbField(256)
     CC = AcbField(256)
     κ = R(0.0)
-    θ = R(QQ(1, 4)); σ = R(1.0); v0 = R(QQ(4, 100)); ρ = R(-0.5); τ = R(1.0)
-    params = HestonParams(v0, κ, θ, ρ, σ)
+    θ = R(QQ(1, 4))
+    σ = R(1.0)
+    v0 = R(QQ(4, 100))
+    ρ = R(-0.5)
+    τ = R(1.0)
+    params = HestonParams{arb}(v0, κ, θ, ρ, σ)
     cumulantsZ = computeCumulants(params, τ)
     κ = R(QQ(1, 100))
-    params = HestonParams(v0, κ, θ, ρ, σ)
+    params = HestonParams{arb}(v0, κ, θ, ρ, σ)
     cumulants = computeCumulants(params, τ)
 
-    for (cz,c) in zip(cumulantsZ, cumulants)
-        println(cz," ",c)
+    for (cz, c) in zip(cumulantsZ, cumulants)
+        println(cz, " ", c)
         @test isapprox(Float64(cz), Float64(c), rtol = 1e-1)
     end
 end
