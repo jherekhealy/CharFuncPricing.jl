@@ -43,7 +43,7 @@ end
     v0 = 0.1
     τ = 0.01
     params = SchobelZhuParams{Float64}(v0, κ, θ, ρ, σ)
-    cf = DefaultCharFunc{SchobelZhuParams{Float64}, Taylor1{Complex}, Type}(params, Complex)
+    cf = DefaultCharFunc{SchobelZhuParams{Float64}, Taylor1{Complex}}(params)
     t = Taylor1(Float64, 4)
     cft = evaluateLogCharFunc(cf, t, τ)
     c1, c2, c4 = computeCumulants(params, τ)
@@ -74,7 +74,7 @@ end
     strikes = [90.0, 95.0, 100.0, 105.0, 110.0, 115.0, 120.0]
     refPrices = [15.29, 11.50, 8.24, 5.60, 3.58, 2.16, 1.22]
     for (strike, refPrice) in zip(strikes, refPrices)
-        price = priceEuropean(pricer, true, strike, forward, df)
+        price = priceEuropean(pricer, true, strike, forward, τ, df)
         println(strike, " ", price)
         @test isapprox(refPrice, price, atol = 0.01)
     end
@@ -87,7 +87,7 @@ end
         makeCosCharFuncPricer(cf, τ, m, l)
     refPrices = [14.22, 9.60, 5.37, 2.15, 0.50, 0.06, 0.004]
     for (strike, refPrice) in zip(strikes, refPrices)
-        price = priceEuropean(pricer, true, strike, forward, df)
+        price = priceEuropean(pricer, true, strike, forward,τ, df)
         println(strike, " ", price)
         @test isapprox(refPrice, price, atol = 0.01)
     end

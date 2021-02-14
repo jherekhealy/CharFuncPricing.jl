@@ -1,6 +1,6 @@
 export HestonParams, evaluateCharFunc, evaluateLogCharFunc, computeCumulants
 export BlackParams, evaluateCharFuncAndDerivative
-export DefaultCharFunc, CharFunc, CVCharFunc, HestonCVCharFunc
+export CVCharFunc, HestonCVCharFunc
 
 struct HestonParams{T}
     v0::T
@@ -13,59 +13,55 @@ end
 struct BlackParams{T}
     σ::T
 end
+DefaultCharFunc(params::HestonParams{Float64}) =
+    DefaultCharFunc{HestonParams{Float64},Complex}(params)
 
-
-abstract type CharFunc{MT, CR, CF} end
-
-struct DefaultCharFunc{MT, CR, CF} <: CharFunc{MT, CR, CF} #model type, return type (e.g. Complex or acb), field type (AcbField)
-    model::MT
-    field::CF #the CC or Complex type
-end
-DefaultCharFunc(params::HestonParams{Float64}) = DefaultCharFunc{HestonParams{Float64},Complex,Type}(params,Complex)
-@inline model(cf::DefaultCharFunc) = cf.model
-@inline field(cf::DefaultCharFunc) = cf.field
-@inline oneim(cf::CharFunc) = field(cf)(0,1)
-@inline oneim(cf::CharFunc{MT,Complex,Type}) where {MT} = 1im
-@inline pi(cf::CharFunc{MT, Complex, Type}) where {MT} = Float64(Base.pi)
-@inline pi(cf::CharFunc{MT, Complex{BigFloat}, Type{Complex{BigFloat}}}) where {MT} = big(Base.pi)
-@inline Base.zero(cf::CharFunc{MT, Complex, Type}) where {MT} = Base.zero(Float64)
-@inline Base.zero(cf::CharFunc{MT, Complex{BigFloat}, Type{Complex{BigFloat}}}) where {MT} = Base.zero(BigFloat)
-
-function evaluateLogCharFunc(cf::CharFunc{BlackParams{T},CR,CF}, z::CT, τ::T)::CR where {T,CR,CF,CT}
+function evaluateLogCharFunc(
+    cf::CharFunc{BlackParams{T},CR},
+    z::CT,
+    τ::T,
+)::CR where {T,CR,CT}
     cc1 = oneim(cf)
     p = cf.model
-    return -p.σ^2 * τ / 2 * z * (z+cc1)
+    return -p.σ^2 * τ / 2 * z * (z + cc1)
 end
 
-function evaluateLogCharFuncAndDerivative(cf::CharFunc{BlackParams{T},CR,CF}, z::CT, τ::T)::Tuple{CR,CR} where {T, CR, CF,CT}
+function evaluateLogCharFuncAndDerivative(
+    cf::CharFunc{BlackParams{T},CR},
+    z::CT,
+    τ::T,
+)::Tuple{CR,CR} where {T,CR,CT}
     cc1 = oneim(cf)
     p = cf.model
-    phi = - p.σ^2 * τ / 2 * z * (z+cc1)
-    phi_d = -p.σ^2 * τ / 2 * (2*z + cc1)
-    return phi,phi_d
+    phi = -p.σ^2 * τ / 2 * z * (z + cc1)
+    phi_d = -p.σ^2 * τ / 2 * (2 * z + cc1)
+    return phi, phi_d
 end
 
-struct CVCharFunc{MAINT, CONTROLT, CR, CF} <: CharFunc{MAINT, CR, CF}
-    main::CharFunc{MAINT, CR, CF}
-    control::CharFunc{CONTROLT, CR, CF}
+struct CVCharFunc{MAINT,CONTROLT,CR} <: CharFunc{MAINT,CR}
+    main::CharFunc{MAINT,CR}
+    control::CharFunc{CONTROLT,CR}
 end
 
 model(cf::CVCharFunc) = model(cf.main)
-field(cf::CVCharFunc) = field(cf.main)
 oneim(cf::CVCharFunc) = oneim(cf.main)
 
-# struct HestonCVParams{T}
-#     heston::HestonParams{T}
-#     black::BlackParams{T}
-# end
+HestonCVCharFunc(heston::CharFunc{HestonParams{T},CR}) where {T,CR} =
+    CVCharFunc{HestonParams{T},BlackParams{T},CR}(
+        heston,
+        DefaultCharFunc{BlackParams{T},CR}(
+            BlackParams{T}(sqrt(model(heston).v0))
+        ),
+    )
 
-HestonCVCharFunc(heston::CharFunc{HestonParams{T},CR,CF}) where {T,CR,CF} =
-CVCharFunc{HestonParams{T},BlackParams{T}, CR, CF}(heston, DefaultCharFunc{BlackParams{T},CR, CF}(BlackParams{T}(sqrt(model(heston).v0)),field(heston)))
-
-function evaluateCharFuncAndDerivative(p::CVCharFunc{MAINT, CONTROLT,CR,CF}, z::CT, τ::T)::Tuple{CR,CR} where {T, CR, CF, CT, MAINT, CONTROLT}
+function evaluateCharFuncAndDerivative(
+    p::CVCharFunc{MAINT,CONTROLT,CR},
+    z::CT,
+    τ::T,
+)::Tuple{CR,CR} where {T,CR,CT,MAINT,CONTROLT}
     phi, phi_d = evaluateCharFuncAndDerivative(p.main, z, τ)
     phiB, phiB_d = evaluateCharFuncAndDerivative(p.control, z, τ)
-    return (phi-phiB, phi_d-phiB_d)
+    return (phi - phiB, phi_d - phiB_d)
 end
 
 #cinf(params::HestonCVParams{T}, τ::T) where {T} = cinf(params.heston, τ)
@@ -74,14 +70,26 @@ cinf(params::HestonParams{T}, τ::T) where {T} =
     (params.v0 + params.κ * params.θ * τ) / params.σ * sqrt(1 - params.ρ^2)
 
 #CC the Nemo arbField or Complex type. z: Nemo complex number or Complex number.
-@inline function evaluateCharFunc(p::CharFunc{MT, CR, CF}, z::CT, τ::T)::CR where {T, CR, CF, CT, MT}
+@inline function evaluateCharFunc(
+    p::CharFunc{MT,CR},
+    z::CT,
+    τ::T,
+)::CR where {T,CR,CT,MT}
     return exp(evaluateLogCharFunc(p, z, τ))
 end
 
-@inline evaluateLogCharFunc(p::CharFunc{HestonParams{T},CR,CF}, z::CT, τ::T) where {T,CR,CF,CT} = evaluateLogCharFuncAL(p,z,τ)
+@inline evaluateLogCharFunc(
+    p::CharFunc{HestonParams{T},CR},
+    z::CT,
+    τ::T,
+) where {T,CR,CT} = evaluateLogCharFuncAL(p, z, τ)
 
 
-@inline function evaluateLogCharFuncAL(cf::CharFunc{HestonParams{T},CR,CF}, z::CT, τ::T)::CR where {T,CR,CF,CT}
+@inline function evaluateLogCharFuncAL(
+    cf::CharFunc{HestonParams{T},CR},
+    z::CT,
+    τ::T,
+)::CR where {T,CR,CT}
     #follows Andersen-Lake fast implementation
     p = model(cf)
     v0 = p.v0
@@ -91,35 +99,64 @@ end
     σ = p.σ
     cc1 = oneim(cf)
     α = -(z * (z + cc1)) * σ^2
-    β = κ - σ * ρ * cc1 * z
+    β = κ - σ * ρ * z * cc1
     D = sqrt(β^2 - α)
-    local rr
-    if (real(β) * real(D) + imag(β) * imag(D)) > 0
-        rr = α / (β + D)
-    else
-        rr = (β - D)
-    end
-    local y
-    if D != 0
-        y = expm1(-D * τ) / (2 * D)
-    else
-        y = -τ / 2
-    end
+    rr = (real(β) * real(D) + imag(β) * imag(D)) > 0 ? α / (β + D) : (β - D)
+    y = D == 0 ? -τ / 2 : expm1(-D * τ) / (2 * D)
     l = log1p(-rr * y)
     A = (rr * τ - 2 * l) * (κ * θ / σ^2)
     B = z * (z + cc1) * y / (1 - rr * y)
     return A + B * v0
 end
 
+#Faster evaluation of the characteristic function phi(ix) where x is real. Useful for optimal alpha.
+@inline function evaluateLogCharFuncAtImag(
+    cf::CharFunc{HestonParams{T},CR},
+    imz::T,
+    τ::T,
+)::T where {T,CR}
+    #follows Andersen-Lake fast implementation
+    p = model(cf)
+    v0 = p.v0
+    κ = p.κ
+    θ = p.θ
+    ρ = p.ρ
+    σ = p.σ
+    cc1 = oneim(cf)
+    α = (imz * (imz + one(T))) * σ^2
+    β = κ + σ * ρ * imz
+    D2 = β^2 - α
+    local ch, sh
+    if D2 >= 0
+        D = sqrt(D2)
+        ch = cosh(D * τ / 2)
+        sh = (D == 0) ? τ / 2 : sinh(D * τ / 2) / D
+    else
+        D = sqrt(-D2)
+        sh, ch = sincos(D * τ / 2)
+        sh /= D
+    end
+    A = κ * θ / σ^2 * (β * τ - log((ch + β * sh)^2))
+    B = imz * (imz + 1) * sh / (ch + β * sh)
+    return A + B * v0
+end
 
-@inline function evaluateCharFuncAndDerivative(p::CharFunc{MAINT, CR, CF}, z::CT, τ::T)::Tuple{CR,CR} where {T, CR, CF, CT, MAINT}
+@inline function evaluateCharFuncAndDerivative(
+    p::CharFunc{MAINT,CR},
+    z::CT,
+    τ::T,
+)::Tuple{CR,CR} where {T,CR,CT,MAINT}
     arg, arg_d = evaluateLogCharFuncAndDerivative(p, z, τ)
     phi = exp(arg)
     phi_d = arg_d * phi
     return phi, phi_d
 end
 
-@inline function evaluateLogCharFuncAndDerivative(cf::CharFunc{HestonParams{T},CR,CF}, z::CT, τ::T)::Tuple{CR,CR} where {T,CR,CF,CT}
+@inline function evaluateLogCharFuncAndDerivative(
+    cf::CharFunc{HestonParams{T},CR},
+    z::CT,
+    τ::T,
+)::Tuple{CR,CR} where {T,CR,CT}
     #derivative towards real part of z
     p = model(cf)
     v0 = p.v0
@@ -166,18 +203,26 @@ end
     return A + B * v0, A_d + B_d * v0
 end
 
-struct CuiCharFunc{MT, CR, CF} <: CharFunc{MT, CR, CF} #model type, return type (e.g. Complex or acb), field type (AcbField)
+struct CuiCharFunc{MT,CR} <: CharFunc{MT,CR} #model type, return type (e.g. Complex or acb),
     model::MT
-    field::CF #the CC or Complex type
 end
 
-CuiCharFunc(params::HestonParams{Float64}) = CuiCharFunc{HestonParams{Float64},Complex,Type}(params,Complex)
+CuiCharFunc(params::HestonParams{Float64}) =
+    CuiCharFunc{HestonParams{Float64},Complex,Type}(params, Complex)
 @inline model(cf::CuiCharFunc) = cf.model
 @inline field(cf::CuiCharFunc) = cf.field
-@inline evaluateLogCharFunc(p::CuiCharFunc{HestonParams{T},CR,CF}, z::CT, τ::T) where {T,CR,CF,CT} = evaluateLogCharFuncCui(p,z,τ)
+@inline evaluateLogCharFunc(
+    p::CuiCharFunc{HestonParams{T},CR},
+    z::CT,
+    τ::T,
+) where {T,CR,CF,CT} = evaluateLogCharFuncAL(p, z, τ)
 
 
-function evaluateLogCharFuncCui(cf::CharFunc{HestonParams{T},CR,CF}, z::CT, τ::T)::CR where {T,CR,CF,CT}
+function evaluateLogCharFuncCui(
+    cf::CharFunc{HestonParams{T},CR},
+    z::CT,
+    τ::T,
+)::CR where {T,CR,CT}
     p = model(cf)
 
     v0 = p.v0
@@ -195,7 +240,10 @@ function evaluateLogCharFuncCui(cf::CharFunc{HestonParams{T},CR,CF}, z::CT, τ::
     ch1 = cosh(dht)
     A2v = (d * ch1 + ξ * sh1)
     A1 = α * sh1
-    edt = ch1 + sh1
+    # edt = ch1 - sh1
+    # logB = (κ * τ / 2 - dht) - log1p( (ξ - d) * sh1/ d * edt )
+
+    edt = (ch1 + sh1)
     logB = (κ * τ / 2 - dht) - log(A2v / (d * edt))
     return -κ * θ * ρ * τ / σ * iu - A1 / A2v * v0 + 2 * κ * θ / σ^2 * logB
 end

@@ -11,19 +11,19 @@ end
 
 
 function makeCosCharFuncPricer(
-    cf::CharFunc{MAINT, CR, CT},
+    cf::CharFunc{MAINT,CR},
     τ::T,
     m::Int,
     l::Int,
-) where {T,CR, CT, MAINT}
+) where {T,CR,MAINT}
     p = model(cf)
     c1, c2, c4 = computeCumulants(p, τ)
     c2 = c2 + sqrt(abs(c4))
     a = c1 - l * sqrt(abs(c2))
     b = c1 + l * sqrt(abs(c2))
     # println("a ",a," b ",b)
-    piHigh = T(Base.pi)
-    z =  @. (1:m) * piHigh / (b - a)
+    piHigh = const_pi(cf)
+    z = @. (1:m) * piHigh / (b - a)
     phiz = map(z -> evaluateCharFunc(cf, z, τ), z)
     phi = @. real(phiz) * cos(-z * a) - imag(phiz) * sin(-z * a)
     uk = Vector{typeof(piHigh)}(undef, m)
@@ -32,24 +32,24 @@ end
 
 
 function makeCosCharFuncPricer(
-    cf::CharFunc{MAINT, CR, CT},
+    cf::CharFunc{MAINT,CR},
     τ::T,
     l::Int;
-    tol::T = 1e-8
-) where {T,CR,CT,MAINT}
-    p= model(cf)
+    tol::T = 1e-8,
+) where {T,CR,MAINT}
+    p = model(cf)
     c1, c2, c4 = computeCumulants(p, τ)
     c2 = c2 + sqrt(abs(c4))
     a = c1 - l * sqrt(abs(c2))
     b = c1 + l * sqrt(abs(c2))
-    c0 = cinf(p,τ)
-    lWinv = Float64(2*c0/(tol*(b-a)) )
-    lW = lambertW( lWinv)
-    m = ceil(Int, lW/Float64(c0)/Base.pi*Float64(b-a))
-    m = max(32,m)
-     # println("a ",a," b ",b, " m ",m, " lwi ",lWinv, " c0 ",c0)
-    piHigh =T(Base.pi)
-    z =  @. (1:m) *piHigh / (b - a)
+    c0 = cinf(p, τ)
+    lWinv = Float64(2 * c0 / (tol * (b - a)))
+    lW = lambertW(lWinv)
+    m = ceil(Int, lW / Float64(c0) / Base.pi * Float64(b - a))
+    m = max(32, m)
+    # println("a ",a," b ",b, " m ",m, " lwi ",lWinv, " c0 ",c0)
+    piHigh = const_pi(cf)
+    z = @. (1:m) * piHigh / (b - a)
     phiz = map(z -> evaluateCharFunc(cf, z, τ), z)
     phi = @. real(phiz) * cos(-z * a) - imag(phiz) * sin(-z * a)
     uk = Vector{typeof(piHigh)}(undef, m)
@@ -62,8 +62,12 @@ function priceEuropean(
     isCall::Bool,
     strike::T,
     forward::T,
+    τ::T,
     discountDf::T,
 ) where {T}
+    if τ != p.τ
+        throw(DomainError(τ, string("maturity is different from pricer maturity ", p.τ)))
+    end
     local pricePut
     x = log(forward / strike)
     if x >= -p.a && x >= p.b
@@ -79,7 +83,7 @@ function priceEuropean(
         piHigh = p.pi
         logStrike = log(strike / f)
         estrike = strike / f
-        coeff = 2 / (b - a) * (-(estrike - ea) + estrike * (logStrike - a))
+        coeff = (-(estrike - ea) + estrike * (logStrike - a))*2 / (b - a)
         uk0 = coeff
 
         @inbounds for i = 1:length(uk)
@@ -88,11 +92,10 @@ function priceEuropean(
             sk, ck = sincos(kPid)
             chi = (ck * estrike - 1 * ea + z * (sk * estrike)) / (1 + z^2)
             psi = sk / z
-            coeff = 2 / (b - a) * (-chi + estrike * psi)
+            coeff = (-chi + estrike * psi)*2 / (b - a)
             uk[i] = coeff
         end
-        phi0 = 1
-        sumPut = phi0 * uk0 / 2
+        sumPut = uk0 / 2
         @inbounds for k = 1:length(uk)
             sumPut += p.phi[k] * p.uk[k]
         end

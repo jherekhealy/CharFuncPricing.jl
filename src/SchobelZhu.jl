@@ -7,18 +7,18 @@ struct SchobelZhuParams{T}
     ρ::T
     σ::T
 end
-DefaultCharFunc(params::SchobelZhuParams{Float64}) = DefaultCharFunc{SchobelZhuParams{Float64},Complex,Type}(params,Complex)
+DefaultCharFunc(params::SchobelZhuParams{Float64}) = DefaultCharFunc{SchobelZhuParams{Float64},Complex}(params)
 
 cinf(params::SchobelZhuParams{T}, τ::T) where {T} = (params.v0^2/params.σ+τ*params.σ)/2 *sqrt(1-params.ρ^2)
 
 #CC the Nemo arbField or Complex type. z: Nemo complex number or Complex number.
-@inline function evaluateCharFunc(p::CharFunc{SchobelZhuParams{T},CR,CF}, z::CT, τ::T)::CR where {T,CR,CF,CT}
+@inline function evaluateCharFunc(p::CharFunc{SchobelZhuParams{T},CR}, z::CT, τ::T)::CR where {T,CR,CT}
     return exp(evaluateLogCharFunc(p, z, τ))
 end
 
-evaluateLogCharFunc(p::CharFunc{SchobelZhuParams{T},CR,CF}, z::CT, τ::T) where {T,CR,CF,CT} = evaluateLogCharFuncZhu(p, z, τ)
+evaluateLogCharFunc(p::CharFunc{SchobelZhuParams{T},CR}, z::CT, τ::T) where {T,CR,CT} = evaluateLogCharFuncZhu(p, z, τ)
 
-function evaluateLogCharFuncLK(cf::CharFunc{SchobelZhuParams{T},CR,CF}, z::CT, τ::T)::CR where {T,CR,CF,CT}
+function evaluateLogCharFuncLK(cf::CharFunc{SchobelZhuParams{T},CR}, z::CT, τ::T)::CR where {T,CR,CT}
     #Lord and Kahl formulation
     p = model(cf) #model(cf), abstract cf with concrete types: LK, Zhu.
     v0 = p.v0
@@ -49,7 +49,7 @@ function evaluateLogCharFuncLK(cf::CharFunc{SchobelZhuParams{T},CR,CF}, z::CT, �
     return A + Bs * v0 + Bv * v0^2
 end
 
-function evaluateLogCharFuncZhu(cf::CharFunc{SchobelZhuParams{T},CR,CF}, z::CT, τ::T)::CR where {T,CR,CF,CT}
+function evaluateLogCharFuncZhu(cf::CharFunc{SchobelZhuParams{T},CR}, z::CT, τ::T)::CR where {T,CR,CT}
     #Zhu formulation: faster but issue with complex log. Here we use Cui log adj.
     p = model(cf)
     v0 = p.v0
@@ -72,7 +72,9 @@ function evaluateLogCharFuncZhu(cf::CharFunc{SchobelZhuParams{T},CR,CF}, z::CT, 
     H3 = (κ - γ1 * (sh1 + γ2 * ch1) / γ4) / σ^2
     H4 = ((κ * θ * γ1 - γ2 * γ3) + γ3 * (sh1 + γ2 * ch1)) / (γ4 * γ1 * σ^2) - κ * θ / σ^2
     #H5 = -(γ1*τ-log(γ1)+ log(γ1* γ4/egt) )/ 2
-    H5 = -(γ1 * τ + log(γ4 / egt)) / 2 #original SZ = -log(γ4)/2 - here we adjust the log to always use the main branch.
+    H5 = -(γ1 * τ + log(γ4 / egt)) / 2 # here we adjust the log to always use the main branch.
+    #original SZ
+    #H5 = -log(γ4)/2
     H5 += κ * τ / 2 + (sh1 / γ4 - γ1 * τ) / (2 * γ1^3 * σ^2) * ((κ^2 * θ^2 * γ1^2 - γ3^2))
     H5 += γ3 / (γ1^3 * γ4 * σ^2) * (κ * θ * γ1 - γ2 * γ3) * (ch1 - 1)
     return -s32 * v0^2 - iu * ρ * σ * τ / 2 + H3 / 2 * v0^2 + H4 * v0 + H5

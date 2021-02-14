@@ -106,7 +106,7 @@ struct AdaptiveFlinnCharFuncPricer{T}
             ]
         end
         #end interval = kcos[1,end]
-        return new{T}(τ, kcos, getControlVariance(p, τ), pi(p))
+        return new{T}(τ, kcos, getControlVariance(p, τ), const_pi(p))
     end
 
 end
@@ -117,8 +117,12 @@ function priceEuropean(
     isCall::Bool,
     strike::T,
     forward::T,
+    τ::T,
     discountDf::T,
 ) where {T}
+    if τ != p.τ
+        throw(DomainError(τ, string("maturity is different from pricer maturity ",p.τ)))
+    end
     #intervals are not equals anymore! => cubic hermite spline f, fp.
     #for now, double the points, note: need to transform f and f' back as well.
     freq = log(strike / forward) #-k
@@ -183,8 +187,8 @@ struct FlinnCharFuncPricer{T}
     function FlinnCharFuncPricer(
         p::CharFunc,
         τ::T;
-        tTol::Float64 = 1e-8,
-        qTol::Float64 = 1e-8,
+        tTol::T = T(1e-8),
+        qTol::T = T(1e-8),
         b::T = Base.zero(T),
     ) where {T}
         if b == 0
@@ -228,7 +232,7 @@ struct FlinnCharFuncPricer{T}
             v = mcos[u]
             kcos[:, i] = [u, v[1], v[2], v[3], v[4]]
         end
-        return new{T}(τ, b, kcos, getControlVariance(p, τ), pi(p))
+        return new{T}(τ, b, kcos, getControlVariance(p, τ), const_pi(p))
     end
 end
 
@@ -237,6 +241,7 @@ function priceEuropean(
     isCall::Bool,
     strike::T,
     forward::T,
+    τ::T,
     discountDf::T,
 ) where {T}
     freq = log(strike / forward) #-k
@@ -474,9 +479,9 @@ computeTruncation(p::CVCharFunc, τ::Float64, tol::Float64) =
 function computeTruncation(cf::CharFunc{HestonParams{T}}, τ::T, tol::T) where {T}
     p = model(cf)
     c_inf = cinf(p, τ)
-    u = lambertW(c_inf / tol) / c_inf
+    u = T(lambertW(Float64(c_inf / tol))) / c_inf
     if p.v0 * τ < 0.1
-        ushort = sqrt(lambertW(p.v0 * τ / (tol^2)) / (p.v0 * τ))
+        ushort = sqrt(T(lambertW(Float64(p.v0 * τ / (tol^2)))) / (p.v0 * τ))
         u = max(u, ushort)
     end
     #u = max(u,10.0)
@@ -513,7 +518,7 @@ function integrateQuinticHermite(
     f,
     a::T,
     b::T,
-    tol::Float64,
+    tol::T,
     maxRecursionDepth::Int,
 )::T where {T}
     if tol < eps(T)
