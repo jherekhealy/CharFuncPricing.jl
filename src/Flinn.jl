@@ -317,12 +317,20 @@ function FlinnParams(t::T, x0::T, x2::T) where {T}
     return computeMNPQRS(theta)
 end
 
+function belowFlinnThreshold(theta::T)::Bool where {T}
+    return abs(theta) <= 29*eps(T)^0.1 #0.8 for Float64
+end
+
+function belowFlinnThreshold(theta::Float64)::Bool
+    return theta <= 0.8
+end
+
 @inline function computeMNPQRS(theta::T) where {T}
     theta2 = theta^2
     local M, N, P, Q, R, S
     sint, cost = sincos(theta)
 
-    if abs(theta) <= 0.8
+    if belowFlinnThreshold(theta)
         M =
             theta * (
                 -16.0 / 105.0 +
@@ -624,8 +632,7 @@ function adaptiveQuinticHermiteAux(
     Sleft = (h / 60) * (7 * fa + 16 * fd + 7 * fc + h / 4 * (fpa - fpc))
     Sright = (h / 60) * (7 * fc + 16 * fe + 7 * fb + h / 4 * (fpc - fpb))
     i2 = Sleft + Sright
-    if ((is + (i1 - i2)) == is) || (d == e)
-        # println("Interval contains no more machine numbers, required tolerance may not be met", h, " ",d, " ",e, " ",i1, " ",i2," ",is)
+    if ((is + (i1 - i2)/63) == is) || (d == e)
         return i2
     end
     if bottom <= 0

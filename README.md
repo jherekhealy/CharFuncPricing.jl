@@ -105,11 +105,56 @@ With `l=64; m=1024*8`, we obtain:
 
 ## Andersen-Lake
 ### Float64 Example
+It starts similarly as for the Cos method, the only change is how to build the pricer variable.
+```julia
+pricer = ALCharFuncPricer(cf)
+priceEuropean(pricer, false, strike, spot, τ, df)
+```
+
+The result is `7.9588781132567705`.
+
 ### BigFloat Example
+We use BigFloat for the Heston parameters and option characteristics, as well as in the quadrature tolerance.
+```julia
+r=BigFloat("0.01"); q=BigFloat("0.02")
+κ=BigFloat(4.0); θ=BigFloat("0.25"); σ=BigFloat(1.0); ρ=BigFloat("-0.5"); v0=BigFloat("0.04")
+τ = BigFloat(1.0)
+spot = BigFloat(100.0); strike = BigFloat(80.0)
+spot *= exp((r - q) * τ)
+df = exp(-r * τ)
+params = HestonParams(v0, κ, θ, ρ, σ)
+cf = DefaultCharFunc{HestonParams{BigFloat},Complex{BigFloat}}(params)
+quad = TanhSinhQuadrature(800, BigFloat(1e-200))
+pricer = ALCharFuncPricer(cf,quad)
+priceEuropean(pricer, false, strike, spot, τ, df)
+```
+
+The result is
+
+`7.95887811325676828521326060761429303089865693725960319205094095681918541918632`
 
 ## Adaptive Flinn
+This is the adaptive Flinn quadrature using the transformation to (-1, 1) interval. No truncation is involved.
+
 ### Float64 Example
+With a quadrature tolerance of 1e-8:
+```julia
+pricer = AdaptiveFlinnCharFuncPricer(cf, τ, qTol = 1e-8)
+priceEuropean(pricer, false, strike, spot, τ, df)
+```
+The result is `7.958878112874899`
+
 ### BigFloat Example
+The adaptive Flinn pricer works with high accuracy, but does not perform very well then. It is more intended for the calculation of prices with a absolute error tolerance of around 1e-8 or 1e-10.
+```julia
+pricer = AdaptiveFlinnCharFuncPricer(cf, τ, qTol = BigFloat(1e-24))
+priceEuropean(pricer, false, strike, spot, τ, df)
+```
+The result is
+
+`7.958878113256768285213257572750089190600415520655780637746847607110529890012863`
+
+  and the effective accuracy is 3e-24. In total, `length(pricer.kcos[1,:])=31511` points are used, compared to 295 for an tolerance of 1e-10. For a tolerance of 1e-32, 450799 points are used. This means that algorithm is asymptotically linear on this example.
 
 ## Testing
 
