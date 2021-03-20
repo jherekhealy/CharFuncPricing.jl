@@ -121,7 +121,7 @@ function priceEuropean(
     discountDf::T,
 ) where {T}
     if τ != p.τ
-        throw(DomainError(τ, string("maturity is different from pricer maturity ",p.τ)))
+        throw(DomainError(τ, string("maturity is different from pricer maturity ", p.τ)))
     end
     #intervals are not equals anymore! => cubic hermite spline f, fp.
     #for now, double the points, note: need to transform f and f' back as well.
@@ -192,7 +192,7 @@ struct FlinnCharFuncPricer{T}
         b::T = Base.zero(T),
     ) where {T}
         if b == 0
-            b = computeTruncation(p, τ, tTol)
+            b = computeTruncation(p, τ, T(1e-4))
         end
         mcos = Dict{T,Tuple{T,T,T,T}}()
         iPure = oneim(p)
@@ -224,9 +224,32 @@ struct FlinnCharFuncPricer{T}
             return (v[2], v[4])
         end
         #TODO manual stack management.
-        integrateQuinticHermite(fcos, T(0), b, qTol, 16)
-        integrateQuinticHermite(fsin, T(0), b, qTol, 16)
-        sortedKeys = sort!(collect(keys(mcos)))
+        local a = T(0)
+        local ic = integrateQuinticHermite(fcos, a, b, qTol, 16)
+        local is = integrateQuinticHermite(fsin, a, b, qTol, 16)
+        #test if truncation is ok
+        local sortedKeys
+        for tailIteration = 1:24
+            sortedKeys = sort!(collect(keys(mcos)))
+            n = length(sortedKeys)
+            an = sortedKeys[n-2]
+            cn = sortedKeys[n-1]
+            bn = sortedKeys[n]
+            fan = mcos[an]
+            fbn = mcos[bn]
+            fcn = mcos[cn]
+            tailEstimate = quinticHermiteAux(an, bn, fan[1], fbn[1], fcn[1], fan[3], fbn[3], fcn[3])
+            tailEstimateS = quinticHermiteAux(an, bn, fan[2], fbn[2], fcn[2], fan[4], fbn[4], fcn[4])
+            # println(tailIteration," tail ",tailEstimate," ", tailEstimate/(bn-an)," ", ic, " ",ic*qTol," b=",b," ",bn-an)
+            if (abs(tailEstimate) / min(T(1),bn - an) > tTol *  abs(ic)  || abs(tailEstimateS) / min(T(1),bn - an) > tTol *  abs(is)) && tailIteration < 24
+                a = b
+                b *= 2
+                ic += integrateQuinticHermite(fcos, a, b, qTol, 16, integralEstimate=ic)
+                is += integrateQuinticHermite(fsin, a, b, qTol, 16, integralEstimate=is)
+            else
+                break
+            end
+        end
         kcos = zeros(T, (5, length(mcos)))
         for (i, u) in enumerate(sortedKeys)
             v = mcos[u]
@@ -318,7 +341,7 @@ function FlinnParams(t::T, x0::T, x2::T) where {T}
 end
 
 function belowFlinnThreshold(theta::T)::Bool where {T}
-    return abs(theta) <= 29*eps(T)^0.1 #0.8 for Float64
+    return abs(theta) <= 29 * eps(T)^0.1 #0.8 for Float64
 end
 
 function belowFlinnThreshold(theta::Float64)::Bool
@@ -489,8 +512,8 @@ function computeTruncation(cf::CharFunc{HestonParams{T}}, τ::T, tol::T) where {
     c_inf = cinf(p, τ)
     u = T(lambertW(Float64(c_inf / tol))) / c_inf
     if p.v0 * τ < 0.1
-        ushort = sqrt(T(lambertW(Float64(p.v0 * τ / (tol^2)))) / (p.v0 * τ))
-        u = max(u, ushort)
+         ushort = sqrt(T(lambertW(Float64(p.v0 * τ / (tol^2)))) / (p.v0 * τ))
+         u = ushort
     end
     #u = max(u,10.0)
     #end
@@ -527,7 +550,8 @@ function integrateQuinticHermite(
     a::T,
     b::T,
     tol::T,
-    maxRecursionDepth::Int,
+    maxRecursionDepth::Int;
+    integralEstimate::T = Base.zero(T),
 )::T where {T}
     if tol < eps(T)
         tol = eps(T)
@@ -540,18 +564,21 @@ function integrateQuinticHermite(
     h = (b - a) / 2
 
     is = Base.zero(T)
-    x = Vector{T}(undef, length(p2))
+    x = tuplejoin(a, c .+ h.*p2[2:end-1], b)
     y = Vector{T}(undef, length(p2))
     yp = Vector{T}(undef, length(p2))
     @inbounds for i = 1:length(p2)
-        x[i] = c + h * p2[i]
         y[i], yp[i] = f(x[i])
         is += h * (h0[i] * y[i] + h * h1[i] * yp[i])
     end
-    if is == Base.zero(T)
-        is = one(T)
+    if integralEstimate == Base.zero(T)
+        if is == Base.zero(T)
+            is = one(T)
+        end
+        is = is * tol / eps(T)
+    else
+        is = integralEstimate * tol / eps(T)
     end
-    is = is * tol / eps(T)
 
     @inbounds result =
         adaptiveQuinticHermiteAux(
@@ -632,7 +659,7 @@ function adaptiveQuinticHermiteAux(
     Sleft = (h / 60) * (7 * fa + 16 * fd + 7 * fc + h / 4 * (fpa - fpc))
     Sright = (h / 60) * (7 * fc + 16 * fe + 7 * fb + h / 4 * (fpc - fpb))
     i2 = Sleft + Sright
-    if ((is + (i1 - i2)/63) == is) || (d == e)
+    if ((is + (i1 - i2) / 63) == is) || (d == e)
         return i2
     end
     if bottom <= 0
@@ -644,3 +671,23 @@ function adaptiveQuinticHermiteAux(
         adaptiveQuinticHermiteAux(f, c, b, is, fc, fb, fe, fpc, fpb, fpe, bottom - 1)
     return result
 end
+
+function quinticHermiteAux(
+    a::T,
+    b::T,
+    fa::T,
+    fb::T,
+    fc::T,
+    fpa::T,
+    fpb::T,
+    fpc::T,
+)::T where {T}
+    c = (a + b) / 2
+    h = b - a
+    i1 = (h / 30) * (7 * fa + 16 * fc + 7 * fb + h / 2 * (fpa - fpb))
+    return i1
+end
+
+@inline tuplejoin(x) = x
+@inline tuplejoin(x, y) = (x..., y...)
+@inline tuplejoin(x, y, z...) = (x..., tuplejoin(y, z...)...)
