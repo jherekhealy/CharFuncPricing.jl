@@ -7,7 +7,7 @@ forward= 10000.0
 params=HestonParams(1.0, 2.0, 0.0025, 0.5, 0.1)
 strikes = [100.0001, 101.0, 110.0, 200.0, 1000.0, 10000.0]
 cf = DefaultCharFunc(params)
-quadratureGL = ModlobQuadrature(1e-12)
+quadratureGL = ModlobQuadrature(1e-13)
 pricers = [ALCharFuncPricer(cf, quadratureGL), makeCosCharFuncPricer(cf, τ, 200, 8),
  makeCosCharFuncPricer(cf, τ, 8, tol=1e-8), FlinnCharFuncPricer(cf, τ, tTol = 1e-10, qTol=1e-10),
  FlinnCharFuncPricer(cf, τ, tTol = 1e-40, qTol=1e-10), AdaptiveFlinnCharFuncPricer(cf, τ, qTol=1e-8), ALCharFuncPricer(cf, n=200)]
