@@ -236,7 +236,7 @@ end
 prices = map(x -> priceEuropean(pricers[3], isCall, x, forward, τ, 1.0), strikes)
 @test isapprox(prices[1], refPrices[1], atol=1e-7)
 prices = map(x -> priceEuropean(pricers[4], isCall, x, forward, τ, 1.0), strikes)
-@test isapprox(prices[1], refPrices[1], atol=1e-14)
+@test isapprox(prices[1], refPrices[1], atol=1e-13)
 
 
 
