@@ -149,7 +149,7 @@ function priceEuropean(
     elseif α < 0
         α = max(α, -logmax / abs(ω))
     end
-    #println("alpha ", α, " om ", ω)
+    # println("alpha ", α, " om ", ω)
     tana = tan(angle)
     cc1 = oneim(cf)
     cc1a =  α * cc1
@@ -173,7 +173,7 @@ function priceEuropean(
         I *= exp(α * ω) * forward / piHigh
 
     end
-    # println(" alpha ", α, " alphaom ", α * ω, " I ", I, " nEval ", nEval)
+    #  println(" alpha ", α, " alphaom ", α * ω, " I ", I, " nEval ", nEval)
     R = Base.zero(T)
     if α <= 0
         R += forward
@@ -299,8 +299,8 @@ function optimalAlpha(
     #we have kmin & kmax, \alpha = k-1
     @inline function alphaObj(α::T)::T
         # u = -(α + 1) * cc1
-        # logPhi = evaluateLogCharFunc(cf, u, τ)
         logPhi = evaluateLogCharFuncAtImag(cf, -(α+1), τ)
+        # println("alphaObj ",α," ",logPhi," ",evaluateLogCharFunc(cf, -(α + 1) * cc1, τ))
         if α >= -1 && α <= 0 #Andersen-Lake typical case, include denominator (payoff dependent)
             return real(logPhi) + α * ω - log(-α * (α + 1))
         else
@@ -309,7 +309,10 @@ function optimalAlpha(
         #return real(logPhi) + α * ω
     end
 
-    @inline kObjective(x) = evaluateK(cf, km0, kp0, τ, x)
+    @inline function kObjective(x::T)::T
+        value = evaluateK(cf, km0, kp0, τ, x)
+        value
+    end
     local αmin, αmax
     ismaxOk = true
     if ω < 0
@@ -382,7 +385,7 @@ function optimalAlpha(
         αmax = Base.zero(T)
         #return -0.25
     end
-
+    # println("αmin ",αmin, " αmax ",αmax)
     aeps = min(one(T), αmax - αmin) * ktol
     result = optimize(alphaObj, αmin + aeps, αmax - aeps, Brent(); rel_tol = T(1e-4))
     return minimizer(result)
