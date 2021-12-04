@@ -2,7 +2,8 @@
 
 | Status | Coverage |
 | :----: | :----: |
-| [![Build Status](https://travis-ci.org/jherekhealy/CharFuncPricing.jl.svg?branch=master)](https://travis-ci.org/jherekhealy/CharFuncPricing.jl) | [![codecov.io](http://codecov.io/github/jherekhealy/CharFuncPricing.jl/coverage.svg?branch=master)](http://codecov.io/github/jherekhealy/CharFuncPricing.jl?branch=master) |
+| ![Build Status](https://github.com/jherekhealy/CharFuncPricing.jl/actions/workflows/julia-runtests.yml/badge.svg) | [![codecov.io](http://codecov.io/github/jherekhealy/CharFuncPricing.jl/coverage.svg?branch=main)](http://codecov.io/github/jherekhealy/CharFuncPricing.jl?branch=main) |
+
 
 
 Julia package to provide reference European option prices for stochastic volatility models with a known characteristic function, such as the Heston stochastic volatility model. For the Heston and Schobel-Zhu models, a function provides the first, second and fourth cumulants through analytical formulas.
