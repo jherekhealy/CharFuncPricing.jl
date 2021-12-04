@@ -2,7 +2,7 @@
 
 | Status | Coverage |
 | :----: | :----: |
-| ![Build Status](https://github.com/jherekhealy/CharFuncPricing.jl/actions/workflows/julia-runtests.yml/badge.svg) | [![codecov.io](http://codecov.io/github/jherekhealy/CharFuncPricing.jl/coverage.svg?branch=main)](http://codecov.io/github/jherekhealy/CharFuncPricing.jl?branch=main) |
+| ![Build Status](https://github.com/jherekhealy/CharFuncPricing.jl/actions/workflows/julia-runtests.yml/badge.svg) | [![codecov.io](http://codecov.io/github/jherekhealy/CharFuncPricing.jl/coverage.svg?branch=master)](http://codecov.io/github/jherekhealy/CharFuncPricing.jl?branch=master) |
 
 
 
