@@ -13,6 +13,7 @@ Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 
 [compat]
+Nemo = "0.27"
 julia = "1"
 
 [extras]
