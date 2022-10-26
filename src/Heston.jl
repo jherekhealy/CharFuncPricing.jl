@@ -1,6 +1,6 @@
 export HestonParams, evaluateCharFunc, evaluateLogCharFunc, computeCumulants
 export BlackParams, evaluateCharFuncAndDerivative
-export CVCharFunc, HestonCVCharFunc
+export CVCharFunc, HestonCVCharFunc, cinf
 
 struct HestonParams{T}
     v0::T

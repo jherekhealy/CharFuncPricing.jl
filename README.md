@@ -73,6 +73,8 @@ priceEuropean(pricer, false, strike, spot, τ, df)
 ```
 
 The result is `7.95887811325676`.
+  
+```
 
 ### Nemo Example
 ```julia

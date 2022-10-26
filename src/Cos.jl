@@ -21,7 +21,7 @@ function makeCosCharFuncPricer(
     c2 = c2 + sqrt(abs(c4))
     a = c1 - l * sqrt(abs(c2))
     b = c1 + l * sqrt(abs(c2))
-    # println("a ",a," b ",b)
+    # println("a ",a," b ",b)    
     piHigh = const_pi(cf)
     z = @. (1:m) * piHigh / (b - a)
     phiz = map(z -> evaluateCharFunc(cf, z, τ), z)

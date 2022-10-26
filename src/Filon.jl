@@ -2,7 +2,22 @@ import DataStructures: SortedDict
 
 export priceEuropean, AdaptiveFilonCharFuncPricer
 
-
+abstract type AbstractTransformation end
+struct ALTransformation <: AbstractTransformation
+end
+transform(::ALTransformation, z::T) where {T} = (1 + z) / (1 - z)
+inverseTransform(::ALTransformation, x::T) where {T} = (x - 1) / (x + 1)
+transformDerivative(::ALTransformation, z::T) where {T} = 2 / (1 - z)^2
+interval(::ALTransformation, ::Type{T}) where {T} = (-one(T),one(T))
+isinfTransform(::ALTransformation, z::T) where {T} =  z == one(T)
+struct LogTransformation{T} <: AbstractTransformation
+    c∞ ::T
+end
+transform(t::LogTransformation, z::T) where {T} = -log(-z)/t.c∞
+inverseTransform(t::LogTransformation, x::T) where {T} = -exp(-x * t.c∞)
+transformDerivative(t::LogTransformation, z::T) where {T} = -one(T)/(z*t.c∞)
+interval(::LogTransformation{T}, ::Type{T}) where {T} = (-one(T),zero(T))
+isinfTransform(::LogTransformation, z::T) where {T} =  z == zero(T)
 #Adaptive Filon with variable transform.
 struct AdaptiveFilonCharFuncPricer{T}
     τ::T
@@ -12,28 +27,31 @@ struct AdaptiveFilonCharFuncPricer{T}
     function AdaptiveFilonCharFuncPricer(
         p::CharFunc,
         τ::T;
-        qTol::T = sqrt(eps(T)),
+        qTol::T = sqrt(eps(T))
     ) where {T}
         mcos = Dict{T,Tuple{T,T}}()
         iPure = oneim(p)
+        ###### PROBLEMS - if we go to one interval (first one) deep, calc stops for all. But we really have a badly distributed set of points
+        #                 the transform is good to find interval truncation, but not good for the points if transform is too different from identity.
+        myTrans = ALTransformation()
+        #myTrans = LogTransformation(cinf(model(p), τ)/2) # without /2 fsin not well behaved near z = 0 (x=infty).
         @inline function integrand(z::T)::Tuple{T,T} where {T}
-            if z == one(T)
-                #x=+infty
+            if isinfTransform(myTrans, z)
                 return zero(T), zero(T)
             end
-            x = (1 + z) / (1 - z)
+            x = transform(myTrans,z)
             u = x - iPure / 2
             phi = evaluateCharFunc(p, u, τ)
-            denom = (1 / 4 + x^2)
+            denom = (x^2 + 1 / 4)
             phi /= denom
-            factor = 2 / (1 - z)^2
+            factor = transformDerivative(myTrans,z)
             phi *= factor
             return real(phi), imag(phi)
         end
 
         @inline function fcos(x::T)::T where {T}
             v = integrand(x)
-            if (x != 1)
+            if  !isinfTransform(myTrans, x)
                 mcos[x] = v
             end
             return v[1]
@@ -45,21 +63,28 @@ struct AdaptiveFilonCharFuncPricer{T}
                 v = mcos[x]
             else
                 v = integrand(x)
-                if (x != 1)
+                if !isinfTransform(myTrans,x)
                     mcos[x] = v
                 end
             end
             return v[2]
         end
-        integrateSimpsonGG(fcos, -one(T), one(T), qTol, 16)
-        integrateSimpsonGG(fsin, -one(T), one(T), qTol, 16)
+        (a,b) = interval(myTrans, T)
+        integrateSimpsonGG(fcos, a,b, qTol, maxRecursionDepth=18)
+        integrateSimpsonGG(fsin, a,b, qTol, maxRecursionDepth=18)
+    #    modsim(fcos, a,b, qTol, maxRecursionDepth=16)
+    #    modsim(fsin, a,b, qTol, maxRecursionDepth=16)
+       
         sortedKeys = sort!(collect(keys(mcos)))
         kcos = zeros(T, (3, length(mcos) * 2 - 1))
         #convert to original coordinate
+        if (transformDerivative(myTrans, (a+b)/2) < zero(T))
+            sortedKeys = reverse(sortedKeys)
+        end
         for (i, u) in enumerate(sortedKeys)
             v = mcos[u]
-            x = (1 + u) / (1 - u)
-            factor = 2 / (1 - u)^2
+            x = transform(myTrans,u)
+            factor = transformDerivative(myTrans, u)
             kcos[:, i*2-1] = [x, v[1] / factor, v[2] / factor]
         end
         #add mid points
@@ -67,9 +92,9 @@ struct AdaptiveFilonCharFuncPricer{T}
             a = @view kcos[:, i*2-1]
             b = @view kcos[:, (i+1)*2-1]
             x = (a[1] + b[1]) / 2
-            u = (x - 1) / (x + 1) #(1-u)*x = 1+u => u(1+x) = x-1 => u=(x-1)/(x+1)
+            u = inverseTransform(myTrans, x) #(1-u)*x = 1+u => u(1+x) = x-1 => u=(x-1)/(x+1)
             v = integrand(u)
-            factor = 2 / (1 - u)^2
+            factor = transformDerivative(myTrans, u)
             kcos[:, i*2] = [x, v[1] / factor, v[2] / factor]
         end
         #end interval = kcos[1,end]
@@ -219,67 +244,4 @@ end
     c2nm1 = fcos1 * ct1
     value += h * (p.α * (fcos2 * st2 - fcos0 * st0) + p.β * c2n + p.γ * c2nm1)
     return value
-end
-
-
-function integrateSimpsonGG(f, a::T, b::T, tol::T, maxRecursionDepth::Int)::T where {T}
-    if tol < eps(T)
-        tol = eps(T)
-    end
-
-    if b <= a
-        return Base.zero(T)
-    end
-    c = (a + b) / 2
-
-    fa = f(a)
-    fm = f(c)
-    fb = f(b)
-    yy0 = f(a + 0.9501 * (b - a))
-    yy1 = f(a + 0.2311 * (b - a))
-    yy2 = f(a + 0.6068 * (b - a))
-    yy3 = f(a + 0.4860 * (b - a))
-    yy4 = f(a + 0.8913 * (b - a))
-
-    is = (b - a) / 8 * (fa + fm + fb + yy0 + yy1 + yy2 + yy3 + yy4)
-    if is == 0
-        is = b - a
-    end
-    is = is * tol / eps(T)
-
-    result = adaptiveSimpsonAux(f, a, b, fa, fm, fb, is, maxRecursionDepth)
-    return result
-end
-
-function adaptiveSimpsonAux(
-    f,
-    a::T,
-    b::T,
-    fa::T,
-    fm::T,
-    fb::T,
-    is::T,
-    bottom::Int,
-)::T where {T}
-    m = (b + a) / 2
-    h = (b - a) / 4
-    fml = f(a + h)
-    fmr = f(b - h)
-    i1 = h / 1.5 * (fa + 4 * fm + fb)
-    i2 = h / 3 * (fa + 4 * (fml + fmr) + 2 * fm + fb)
-    #i1 = (16 * i2 - i1) / 15
-    if ((is + (i1 - i2)) == is) || (m <= a) || (b <= m)
-        if ((m <= a) || (b <= m))
-            #Interval contains no more machine numbers, required tolerance may not be met
-        end
-        return i2
-    end
-
-    if bottom <= 0
-        # println("Number of maximum recursions reached")
-        return i2
-    end
-
-    return adaptiveSimpsonAux(f, a, m, fa, fml, fm, is, bottom - 1) +
-           adaptiveSimpsonAux(f, m, b, fm, fmr, fb, is, bottom - 1)
 end
