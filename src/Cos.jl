@@ -10,18 +10,31 @@ struct CosCharFuncPricer{T}
 end
 
 
+#using cumulants rule
 function makeCosCharFuncPricer(
     cf::CharFunc{MAINT,CR},
     τ::T,
     m::Int,
-    l::Int,
+    l::Int
 ) where {T,CR,MAINT}
     p = model(cf)
     c1, c2, c4 = computeCumulants(p, τ)
     c2 = c2 + sqrt(abs(c4))
     a = c1 - l * sqrt(abs(c2))
     b = c1 + l * sqrt(abs(c2))
-    # println("a ",a," b ",b)    
+    # println("a ",a," b ",b)   
+    return makeCosCharFuncPricer(cf,τ,m,a,b) 
+end
+
+#On interval [a,b]
+function makeCosCharFuncPricer(
+    cf::CharFunc{MAINT,CR},
+    τ::T,
+    m::Int,
+    a::T,
+    b::T
+) where {T,CR,MAINT}
+    p = model(cf)
     piHigh = const_pi(cf)
     z = @. (1:m) * piHigh / (b - a)
     phiz = map(z -> evaluateCharFunc(cf, z, τ), z)

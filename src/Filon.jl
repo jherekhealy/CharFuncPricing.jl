@@ -1,5 +1,3 @@
-import DataStructures: SortedDict
-
 export priceEuropean, AdaptiveFilonCharFuncPricer
 
 abstract type AbstractTransformation end
@@ -18,7 +16,18 @@ inverseTransform(t::LogTransformation, x::T) where {T} = -exp(-x * t.c∞)
 transformDerivative(t::LogTransformation, z::T) where {T} = -one(T)/(z*t.c∞)
 interval(::LogTransformation{T}, ::Type{T}) where {T} = (-one(T),zero(T))
 isinfTransform(::LogTransformation, z::T) where {T} =  z == zero(T)
+struct IdentityTransformation{T} <: AbstractTransformation
+    a ::T
+    b ::T
+end
+transform(t::IdentityTransformation, z::T) where {T} = z
+inverseTransform(t::IdentityTransformation, x::T) where {T} = x
+transformDerivative(t::IdentityTransformation, z::T) where {T} = one(T)
+interval(t::IdentityTransformation{T}, ::Type{T}) where {T} = (t.a, t.b)
+isinfTransform(::IdentityTransformation, z::T) where {T} =  false
+
 #Adaptive Filon with variable transform.
+
 struct AdaptiveFilonCharFuncPricer{T}
     τ::T
     kcos::Array{T,2}
@@ -27,13 +36,14 @@ struct AdaptiveFilonCharFuncPricer{T}
     function AdaptiveFilonCharFuncPricer(
         p::CharFunc,
         τ::T;
-        qTol::T = sqrt(eps(T))
+        qTol::T = sqrt(eps(T)),
+        myTrans = ALTransformation(),
+        maxRecursionDepth=18
     ) where {T}
         mcos = Dict{T,Tuple{T,T}}()
         iPure = oneim(p)
         ###### PROBLEMS - if we go to one interval (first one) deep, calc stops for all. But we really have a badly distributed set of points
-        #                 the transform is good to find interval truncation, but not good for the points if transform is too different from identity.
-        myTrans = ALTransformation()
+        #                 the transform is good to find interval truncation, but not good for the points if transform is too different from identity.        
         #myTrans = LogTransformation(cinf(model(p), τ)/2) # without /2 fsin not well behaved near z = 0 (x=infty).
         @inline function integrand(z::T)::Tuple{T,T} where {T}
             if isinfTransform(myTrans, z)
@@ -70,8 +80,8 @@ struct AdaptiveFilonCharFuncPricer{T}
             return v[2]
         end
         (a,b) = interval(myTrans, T)
-        integrateSimpsonGG(fcos, a,b, qTol, maxRecursionDepth=18)
-        integrateSimpsonGG(fsin, a,b, qTol, maxRecursionDepth=18)
+        integrateSimpsonGG(fcos, a,b, qTol, maxRecursionDepth=maxRecursionDepth)
+        integrateSimpsonGG(fsin, a,b, qTol, maxRecursionDepth=maxRecursionDepth)
     #    modsim(fcos, a,b, qTol, maxRecursionDepth=16)
     #    modsim(fsin, a,b, qTol, maxRecursionDepth=16)
        

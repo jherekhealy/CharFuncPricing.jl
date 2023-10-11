@@ -1,10 +1,9 @@
 name = "CharFuncPricing"
 uuid = "1fb851c3-be98-478b-9657-166436d5cfc1"
 authors = ["Jherek Healy <jherekhealy@protonmail.com>"]
-version = "0.2.0"
+version = "0.3.1"
 
 [deps]
-DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 DoubleExponentialFormulas = "eb426421-6452-4132-80ef-4b100a757ac5"
 Nemo = "2edaba10-b0f1-5616-af89-8c11ac63239a"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
@@ -12,6 +11,7 @@ Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
 DataStructures = "0.18"

@@ -1,4 +1,3 @@
-import DataStructures: SortedDict
 using SpecialFunctions
 
 normcdf(z::T) where {T} = erfc(-z / sqrt(T(2))) / 2
