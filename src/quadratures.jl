@@ -263,7 +263,7 @@ function simpr(
     if E[1] < noise && E[2] < noise
         err = zero(T)
     end
-    if err <= max(tol * abs(is), noise) || x[2] <= a || b <= x[4] || bottom == 0
+    if err <= max(tol * abs(is), noise) || x[2] <= a || b <= x[4] || bottom == 0 || isnan(is) || isinf(is)
         # if ((x[2] <= a) || (b <= x[4])) && (termination2 == 0)
         #     #warning(['Interval too small: required tolerance may not be met.'])
         #     #termination2 = 1
@@ -278,13 +278,14 @@ end
 
 
 function integrateSimpsonGG(f, a::T, b::T, tol::T; maxRecursionDepth::Int = 20)::T where {T}
-    if tol < eps(T)
+    if b <= a || isnan(tol) || isinf(tol)
+        return Base.zero(T)
+    end
+
+    if tol < eps(T) 
         tol = eps(T)
     end
 
-    if b <= a
-        return Base.zero(T)
-    end
     c = (a + b) / 2
 
     fa = f(a)
@@ -323,7 +324,7 @@ function adaptiveSimpsonAux(
     i1 = h / 1.5 * (fa + 4 * fm + fb)
     i2 = h / 3 * (fa + 4 * (fml + fmr) + 2 * fm + fb)
     #i1 = (16 * i2 - i1) / 15
-    if ((is + (i1 - i2)) == is) || (m <= a) || (b <= m)
+    if ((is + (i1 - i2)) == is) || (m <= a) || (b <= m) || isnan(i1) || isinf(i1)
         if ((m <= a) || (b <= m))
             #Interval contains no more machine numbers, required tolerance may not be met
         end
@@ -429,7 +430,7 @@ function coter(
     if E[1] < noise && E[2] < noise
         err = zero(T)
     end
-    if err <= max(tol * abs(is), noise) || x[2] <= a || b <= x[4] || bottom == 0
+    if err <= max(tol * abs(is), noise) || x[2] <= a || b <= x[4] || bottom == 0 || isnan(is) || isinf(is)
         # if ((x[2] <= a) || (b <= x[4])) && (termination2 == 0)
         #     #warning(['Interval too small: required tolerance may not be met.'])
         #     #termination2 = 1

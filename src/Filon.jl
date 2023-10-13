@@ -112,6 +112,7 @@ struct AdaptiveFilonCharFuncPricer{T}
     end
 
 end
+Base.broadcastable(p::AdaptiveFilonCharFuncPricer) = Ref(p)
 
 
 function priceEuropean(
