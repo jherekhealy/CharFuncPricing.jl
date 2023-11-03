@@ -54,6 +54,15 @@ HestonCVCharFunc(heston::CharFunc{HestonParams{T},CR}) where {T,CR} =
         ),
     )
 
+function evaluateCharFunc(
+    p::CVCharFunc{MAINT,CONTROLT,CR},
+    z::CT,
+    τ::T)::CR where {T,CR,CT,MAINT,CONTROLT}
+    phi = evaluateCharFunc(p.main, z, τ)
+    phiB = evaluateCharFunc(p.control, z, τ)
+    return phi - phiB
+end
+
 function evaluateCharFuncAndDerivative(
     p::CVCharFunc{MAINT,CONTROLT,CR},
     z::CT,

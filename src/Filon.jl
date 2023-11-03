@@ -38,7 +38,7 @@ struct AdaptiveFilonCharFuncPricer{T}
         τ::T;
         qTol::T = sqrt(eps(T)),
         myTrans = ALTransformation(),
-        maxRecursionDepth=18
+        maxRecursionDepth=16
     ) where {T}
         mcos = Dict{T,Tuple{T,T}}()
         iPure = oneim(p)
