@@ -25,7 +25,13 @@ inverseTransform(t::IdentityTransformation, x::T) where {T} = x
 transformDerivative(t::IdentityTransformation, z::T) where {T} = one(T)
 interval(t::IdentityTransformation{T}, ::Type{T}) where {T} = (t.a, t.b)
 isinfTransform(::IdentityTransformation, z::T) where {T} =  false
-
+# struct CotTransformation <: AbstractTransformation
+# end
+# transform(t::CotTransformation, z::T) where {T} = cot(z/2)^2
+# inverseTransform(t::CotTransformation, x::T) where {T} = acot(sqrt(x))*2
+# transformDerivative(t::CotTransformation, z::T) where {T} = 2*sin(z)/(1-cos(z))^2
+# interval(t::CotTransformation, ::Type{T}) where {T} = (zero(T),T(pi))
+# isinfTransform(::CotTransformation, z::T) where {T} =  z == zero(T) 
 #Adaptive Filon with variable transform.
 
 struct AdaptiveFilonCharFuncPricer{T}
@@ -108,7 +114,7 @@ struct AdaptiveFilonCharFuncPricer{T}
             kcos[:, i*2] = [x, v[1] / factor, v[2] / factor]
         end
         #end interval = kcos[1,end]
-        return new{T}(τ, kcos, getControlVariance(p, τ), const_pi(p))
+        return new{T}(τ, kcos, getControlVariance(p), const_pi(p))
     end
 
 end

@@ -19,7 +19,7 @@ function makeCosAlphaCharFuncPricer(
     α::T
 ) where {T,CR,MAINT}
     p = model(cf)
-    c1, c2, c4 = computeCumulants(p, τ)
+    c1, c2, c4 = computeCumulants(cf, τ)
     c2 = c2 + sqrt(abs(c4))
     a = c1 - l * sqrt(abs(c2))
     b = c1 + l * sqrt(abs(c2))

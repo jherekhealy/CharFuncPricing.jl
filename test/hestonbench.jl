@@ -11,6 +11,7 @@ using StatsBase
     κs = [0.01, 0.1, 0.5, 2.0]
     σs = [0.0001, 0.1, 0.5, 1.0, 3.0]
     ρs = [-0.95, -0.5, -0.1, 0.0, 0.1, 0.5, 0.95]
+    isCall = true
     paramset = Vector(undef, 0)
     for τ in τs, v0 in v0s, θ in θs, κ in κs, σ in σs, ρ in ρs
     params = HestonParams(v0, κ, θ, ρ, σ)
@@ -28,7 +29,7 @@ end
             pricer = ALCharFuncPricer(cf)
             for strike in strikes
                 counter += 1
-                price = priceEuropean(pricer, false, strike, forward, τ, 1.0)
+                price = priceEuropean(pricer, isCall, strike, forward, τ, 1.0)
                 pricesA1[counter] = price
             end
         end
@@ -43,7 +44,7 @@ end
             pricer = ALCharFuncPricer(cf, n=1000)
             for strike in strikes
                 counter += 1
-                price = priceEuropean(pricer, false, strike, forward, τ, 1.0)
+                price = priceEuropean(pricer, isCall, strike, forward, τ, 1.0)
                 pricesA2[counter] = price
             end
         end
@@ -58,7 +59,7 @@ end
             pricer = ALCharFuncPricer(cf,  n=2000)
             for strike in strikes
                 counter += 1
-                price = priceEuropean(pricer, false, strike, forward, τ, 1.0)
+                price = priceEuropean(pricer, isCall, strike, forward, τ, 1.0)
                 pricesA3[counter] = price
             end
         end
@@ -74,7 +75,7 @@ end
             pricer = ALCharFuncPricer(cf, qgl)
             for strike in strikes
                 counter += 1
-                price = priceEuropean(pricer, false, strike, forward,τ, 1.0)
+                price = priceEuropean(pricer, isCall, strike, forward,τ, 1.0)
                 pricesA0GL[counter] = price
             end
         end
@@ -90,7 +91,7 @@ end
             pricer = ALCharFuncPricer(cf, qde)
             for strike in strikes
                 counter += 1
-                price = priceEuropean(pricer, false, strike, forward,τ, 1.0)
+                price = priceEuropean(pricer, isCall, strike, forward,τ, 1.0)
                 pricesA0L[counter] = price
             end
         end
@@ -102,7 +103,7 @@ end
         cf = DefaultCharFunc(params)
         refPricer = makeCosCharFuncPricer(cf, τ, 200 , 8)
         for strike in strikes
-            price = priceEuropean(refPricer, false, strike, forward, 1.0)
+            price = priceEuropean(refPricer, isCall, strike, forward, 1.0)
             push!(pricesC1, price)
         end
     end
@@ -115,7 +116,7 @@ end
         cf = DefaultCharFunc(params)
         refPricer = makeCosCharFuncPricer(cf, τ, 8)
         for strike in strikes
-            price = priceEuropean(refPricer, false, strike, forward, 1.0)
+            price = priceEuropean(refPricer, isCall, strike, forward, 1.0)
             push!(pricesC2, price)
         end
     end
@@ -130,7 +131,7 @@ end
             pricer = CharFuncPricing.AdaptiveFlinnCharFuncPricer(cf, τ)
             for strike in strikes
                 counter += 1
-                price = priceEuropean(pricer, false, strike, forward, 1.0)
+                price = priceEuropean(pricer, isCall, strike, forward, 1.0)
                 pricesF1[counter] = price
             end
         end
@@ -145,7 +146,7 @@ end
             pricer = CharFuncPricing.AdaptiveFlinnCharFuncPricer(cf, τ, qTol=1e-9)
             for strike in strikes
                 counter += 1
-                price = priceEuropean(pricer, false, strike, forward, 1.0)
+                price = priceEuropean(pricer, isCall, strike, forward, 1.0)
                 pricesF2[counter] = price
             end
         end
@@ -161,7 +162,7 @@ end
             pricer = CharFuncPricing.AdaptiveFlinnCharFuncPricer(cf, τ, qTol=1e-10)
             for strike in strikes
                 counter += 1
-                price = priceEuropean(pricer, false, strike, forward, 1.0)
+                price = priceEuropean(pricer, isCall, strike, forward, 1.0)
                 pricesF3[counter] = price
             end
         end
@@ -176,12 +177,26 @@ end
             pricer = FlinnCharFuncPricer(cf, τ, tTol=1e-6, qTol=1e-10)
             for strike in strikes
                 counter += 1
-                price = priceEuropean(pricer, false, strike, forward, τ, 1.0)
+                price = priceEuropean(pricer, isCall, strike, forward, τ, 1.0)
                 pricesF2B[counter] = price
             end
         end
     end
 
+    pricesJ = zeros(length(paramset));
+    elapsed = @elapsed begin
+        local counter = 0
+        for τ in τs, v0 in v0s, θ in θs, κ in κs, σ in σs, ρ in ρs
+            params = HestonParams{Float64}(v0, κ, θ, ρ, σ)
+            cf = DefaultCharFunc(params)
+            pricer = JoshiYangCharFuncPricer(cf, τ, n=64)
+            for strike in strikes
+                counter += 1
+                price = priceEuropean(pricer, isCall, strike, forward, τ, 1.0)
+                pricesJ[counter] = price
+            end
+        end
+    end
 
 
     allp = [pricesC1, pricesC2, pricesF1, pricesF2, pricesF3, pricesF2B, pricesA1, pricesA2, pricesA0L]

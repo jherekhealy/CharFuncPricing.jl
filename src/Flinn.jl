@@ -5,21 +5,6 @@ normcdf(z::T) where {T} = erfc(-z / sqrt(T(2))) / 2
 export FlinnCharFuncPricer, priceEuropean, AdaptiveFlinnCharFuncPricer
 
 
-getControlVariance(
-    ::Union{CharFunc{HestonParams{T}},CharFunc{SchobelZhuParams{T}}},
-    τ::T,
-) where {T} = T(0)
-
-@inline function getControlVariance(
-    cf::CVCharFunc{HestonParams{T},BlackParams{T}},
-    τ::T,
-)::T where {T}
-    p = model(cf)
-    # ektm = 1-exp(-p.κ*τ)
-    # return ektm*(p.v0-p.θ)/(p.κ*τ) + p.θ
-    p.v0
-end
-
 
 #Adaptive Flinn with variable transform.
 struct AdaptiveFlinnCharFuncPricer{T}
@@ -105,7 +90,7 @@ struct AdaptiveFlinnCharFuncPricer{T}
             ]
         end
         #end interval = kcos[1,end]
-        return new{T}(τ, kcos, getControlVariance(p, τ), const_pi(p))
+        return new{T}(τ, kcos, getControlVariance(p), const_pi(p))
     end
 
 end
@@ -254,7 +239,7 @@ struct FlinnCharFuncPricer{T}
             v = mcos[u]
             kcos[:, i] = [u, v[1], v[2], v[3], v[4]]
         end
-        return new{T}(τ, b, kcos, getControlVariance(p, τ), const_pi(p))
+        return new{T}(τ, b, kcos, getControlVariance(p), const_pi(p))
     end
 end
 

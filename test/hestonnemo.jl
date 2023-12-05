@@ -58,6 +58,7 @@ using Nemo, CharFuncPricing, Test
 end
 
 @testset "AlanSet" begin
+#Testing https://financepress.com/2019/02/15/heston-model-reference-prices/
     R = ArbField(256)
     CC = AcbField(256)
     r = R(QQ(1, 100))

@@ -20,7 +20,7 @@ function evaluateLogCharFunc(
     cf::CharFunc{BlackParams{T},CR},
     z::CT,
     τ::T,
-)::CR where {T,CR,CT}
+) where {T,CR,CT}
     cc1 = oneim(cf)
     p = cf.model
     return -p.σ^2 * τ / 2 * z * (z + cc1)
@@ -38,6 +38,10 @@ function evaluateLogCharFuncAndDerivative(
     return phi, phi_d
 end
 
+abstract type CVKind end
+struct InitialControlVariance <: CVKind end
+struct FullControlVariance <: CVKind end
+
 struct CVCharFunc{MAINT,CONTROLT,CR} <: CharFunc{MAINT,CR}
     main::CharFunc{MAINT,CR}
     control::CharFunc{CONTROLT,CR}
@@ -46,18 +50,45 @@ end
 model(cf::CVCharFunc) = model(cf.main)
 oneim(cf::CVCharFunc) = oneim(cf.main)
 
-HestonCVCharFunc(heston::CharFunc{HestonParams{T},CR}) where {T,CR} =
-    CVCharFunc{HestonParams{T},BlackParams{T},CR}(
+HestonCVCharFunc(heston::CharFunc{HestonParams{T},CR},τ, kind::CVKind=InitialControlVariance()) where {T,CR} =
+    CVCharFunc{HestonParams{T},BlackParams{T},CR,InitialControlVariance}(
         heston,
         DefaultCharFunc{BlackParams{T},CR}(
-            BlackParams{T}(sqrt(model(heston).v0))
-        ),
+            BlackParams{T}(computeControlVariance(heston,τ,kind))
+        )
     )
+
+makeCVCharFunc(heston::CharFunc{HestonParams{T},CR}, τ, kind::CVKind)  where {T,CR} = HestonCVCharFunc(heston,kind)
+
+
+getControlVariance(    ::CharFunc{MT}) where {MT} = 0.0
+
+@inline function getControlVariance(
+    cf::CVCharFunc{MT,BlackParams{T}})::T where {MT,T}
+    return model(cf.control).σ^2
+end
+
+@inline function computeControlVariance(
+    cf::CharFunc{HestonParams},
+    τ::T, kind::FullControlVariance
+)::T where {T}
+    p = model(cf)
+    ektm = 1-exp(-p.κ*τ)
+    return ektm*(p.v0-p.θ)/(p.κ*τ) + p.θ
+end
+
+@inline function computeControlVariance(
+    cf::CharFunc{HestonParams},
+    τ::T, kind::InitialControlVariance
+)::T where {T}
+    p = model(cf)
+    p.v0
+end
 
 function evaluateCharFunc(
     p::CVCharFunc{MAINT,CONTROLT,CR},
     z::CT,
-    τ::T)::CR where {T,CR,CT,MAINT,CONTROLT}
+    τ::T) where {T,CR,CT,MAINT,CONTROLT}
     phi = evaluateCharFunc(p.main, z, τ)
     phiB = evaluateCharFunc(p.control, z, τ)
     return phi - phiB
@@ -83,7 +114,7 @@ cinf(params::HestonParams{T}, τ::T) where {T} =
     p::CharFunc{MT,CR},
     z::CT,
     τ::T,
-)::CR where {T,CR,CT,MT}
+) where {T,CR,CT,MT}
     return exp(evaluateLogCharFunc(p, z, τ))
 end
 
@@ -98,7 +129,7 @@ end
     cf::CharFunc{HestonParams{T},CR},
     z::CT,
     τ::T,
-)::CR where {T,CR,CT}
+) where {T,CR,CT}
     #follows Andersen-Lake fast implementation
     p = model(cf)
     v0 = p.v0
@@ -255,6 +286,10 @@ function evaluateLogCharFuncCui(
     edt = (ch1 + sh1)
     logB = (κ * τ / 2 - dht) - log(A2v / (d * edt))
     return -κ * θ * ρ * τ / σ * iu - A1 / A2v * v0 + 2 * κ * θ / σ^2 * logB
+end
+
+function computeCumulants(cf::CharFunc{HestonParams{T},CR}, τ::T) where {T,CR}
+    return computeCumulants(model(cf),τ)
 end
 
 function computeCumulants(p::HestonParams{T}, τ::T) where {T}

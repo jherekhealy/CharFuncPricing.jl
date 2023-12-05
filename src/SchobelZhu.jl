@@ -80,8 +80,12 @@ function evaluateLogCharFuncZhu(cf::CharFunc{SchobelZhuParams{T},CR}, z::CT, τ:
     return -s32 * v0^2 - iu * ρ * σ * τ / 2 + H3 / 2 * v0^2 + H4 * v0 + H5
 end
 
-function computeCumulants(p::SchobelZhuParams{T}, τ::T) where {T}
-    κ = p.κ
+function computeCumulants(cf::CharFunc{SchobelZhuParams{T},CR}, τ::T) where {T,CR}
+    return computeCumulants(model(cf),τ)
+end
+
+    function computeCumulants(p::SchobelZhuParams{T}, τ::T) where {T}
+        κ = p.κ
     θ = p.θ
     v0 = p.v0
     σ = p.σ

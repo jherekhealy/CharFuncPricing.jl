@@ -17,8 +17,7 @@ function makeCosCharFuncPricer(
     m::Int,
     l::Int
 ) where {T,CR,MAINT}
-    p = model(cf)
-    c1, c2, c4 = computeCumulants(p, τ)
+    c1, c2, c4 = computeCumulants(cf, τ)
     c2 = c2 + sqrt(abs(c4))
     a = c1 - l * sqrt(abs(c2))
     b = c1 + l * sqrt(abs(c2))
@@ -50,12 +49,11 @@ function makeCosCharFuncPricer(
     l::Int;
     tol::T = 1e-8,
 ) where {T,CR,MAINT}
-    p = model(cf)
-    c1, c2, c4 = computeCumulants(p, τ)
+    c1, c2, c4 = computeCumulants(cf, τ)
     c2 = c2 + sqrt(abs(c4))
     a = c1 - l * sqrt(abs(c2))
     b = c1 + l * sqrt(abs(c2))
-    c0 = cinf(p, τ)
+    c0 = cinf(model(cf), τ)
     lWinv = Float64(2 * c0 / (tol * (b - a)))
     lW = lambertW(lWinv)
     m = ceil(Int, lW / Float64(c0) / Base.pi * Float64(b - a))
@@ -119,3 +117,12 @@ function priceEuropean(
     end
     return pricePut
 end
+
+
+using TaylorSeries
+function computeCumulants(cf::CharFunc{MT,CR}, τ::T) where {MT,CR,T} 
+    t = Taylor1(T, 5)
+    cft = evaluateLogCharFunc(cf,t,τ)
+    return (imag(cft.coeffs[2]), -real(cft.coeffs[3]) * 2, real(cft.coeffs[5] * 2 * 3 * 4))
+end
+

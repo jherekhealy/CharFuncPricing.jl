@@ -21,6 +21,7 @@ end
 include("lambertw.jl")
 include("Heston.jl")
 include("SchobelZhu.jl")
+include("SVCJ.jl")
 include("Cos.jl")
 include("CosLipton.jl")
 include("CosAlpha.jl")
@@ -30,4 +31,5 @@ include("Filon.jl")
 include("NemoCharFunc.jl")
 include("GaussLobatto.jl")
 include("AndersenLake.jl")
+include("JoshiYang.jl")
 end

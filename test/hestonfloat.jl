@@ -10,8 +10,9 @@ cf = DefaultCharFunc(params)
 quadratureGL = ModlobQuadrature(1e-13)
 pricers = [ALCharFuncPricer(cf, quadratureGL), makeCosCharFuncPricer(cf, τ, 200, 8),
  makeCosCharFuncPricer(cf, τ, 8, tol=1e-8), FlinnCharFuncPricer(cf, τ, tTol = 1e-10, qTol=1e-10),
- FlinnCharFuncPricer(cf, τ, tTol = 1e-40, qTol=1e-10), AdaptiveFlinnCharFuncPricer(cf, τ, qTol=1e-8), ALCharFuncPricer(cf, n=200)]
-pricerNames = ["Reference", "Cos (M=200)", "Cos-Adaptive", "Flinn-Truncated (1e-8)", "Flinn-Truncated (1e-40)", "Flinn-Transformed", "Andersen-Lake (n=200)"]
+ FlinnCharFuncPricer(cf, τ, tTol = 1e-40, qTol=1e-10), AdaptiveFlinnCharFuncPricer(cf, τ, qTol=1e-8), ALCharFuncPricer(cf, n=200),
+ JoshiYangCharFuncPricer(cf,τ,n=64)]
+pricerNames = ["Reference", "Cos (M=200)", "Cos-Adaptive", "Flinn-Truncated (1e-8)", "Flinn-Truncated (1e-40)", "Flinn-Transformed", "Andersen-Lake (n=200)","Joshi-Yang (n=128)"]
 isCall = false
 refPrices = map(x-> priceEuropean(pricers[1], isCall, x, forward, τ, 1.0),strikes)
 for price in refPrices
@@ -135,8 +136,9 @@ strike=101.0
 params= HestonParams{Float64}(1.0, 0.01, 0.25, 0.95, 3.0)
 cf = DefaultCharFunc(params)
 pricers= [ ALCharFuncPricer(cf, quadratureGL),  makeCosCharFuncPricer(cf, τ, 8),
-FlinnCharFuncPricer(HestonCVCharFunc(cf), τ, tTol = 1e-10, qTol=1e-10), ALCharFuncPricer(cf, n=200)]
-pricerNames=["Reference","Cos Adapt","Flinn trunc", "AL"]
+FlinnCharFuncPricer(HestonCVCharFunc(cf,τ), τ, tTol = 1e-10, qTol=1e-10), 
+ALCharFuncPricer(cf, n=200), JoshiYangCharFuncPricer(cf,n=128)]
+pricerNames=["Reference","Cos Adapt","Flinn trunc", "AL", "Joshi"]
 isCall = false
 refPrices = map(x-> priceEuropean(pricers[1], isCall, x, forward, τ, 1.0),strikes)
 for price in refPrices
@@ -162,7 +164,7 @@ prices = map(x -> priceEuropean(pricers[4], isCall, x, forward, τ, 1.0), strike
 params =  HestonParams{Float64}(1.0, 0.1, 1.0, 0.95, 0.1)
 cf = DefaultCharFunc(params)
 pricers= [ ALCharFuncPricer(cf, quadratureGL),  makeCosCharFuncPricer(cf, τ, 8),
-FlinnCharFuncPricer(HestonCVCharFunc(cf), τ, tTol = 1e-10, qTol=1e-10), ALCharFuncPricer(cf, n=200)]
+FlinnCharFuncPricer(HestonCVCharFunc(cf,τ), τ, tTol = 1e-10, qTol=1e-10), ALCharFuncPricer(cf, n=200)]
 pricerNames=["Reference","Cos Adapt","Flinn trunc", "AL"]
 isCall = false
 refPrices = map(x-> priceEuropean(pricers[1], isCall, x, forward, τ, 1.0),strikes)
@@ -189,7 +191,7 @@ prices = map(x -> priceEuropean(pricers[4], isCall, x, forward, τ, 1.0), strike
 params = HestonParams{Float64}(0.0001, 0.01, 0.0001, -0.95, 3.0)
 cf = DefaultCharFunc(params)
 pricers= [ ALCharFuncPricer(cf, quadratureGL),  makeCosCharFuncPricer(cf, τ, 8),
-FlinnCharFuncPricer(HestonCVCharFunc(cf), τ, tTol = 1e-10, qTol=1e-10), ALCharFuncPricer(cf, n=10000)]
+FlinnCharFuncPricer(HestonCVCharFunc(cf, τ), τ, tTol = 1e-10, qTol=1e-10), ALCharFuncPricer(cf, n=10000)]
 pricerNames=["Reference","Cos Adapt","Flinn trunc", "AL"]
 refPrices = map(x-> priceEuropean(pricers[1], isCall, x, forward, τ, 1.0),strikes)
 for price in refPrices
@@ -217,7 +219,7 @@ strike = 100.0
 params = HestonParams{Float64}(0.0025, 2.0, 0.25, 0.5, 0.0001)
 cf = DefaultCharFunc(params)
 pricers= [ ALCharFuncPricer(cf, quadratureGL),  makeCosCharFuncPricer(cf, τ, 8),
-FlinnCharFuncPricer(HestonCVCharFunc(cf), τ, tTol = 1e-10, qTol=1e-10), ALCharFuncPricer(cf, n=10000)]
+FlinnCharFuncPricer(HestonCVCharFunc(cf, τ), τ, tTol = 1e-10, qTol=1e-10), ALCharFuncPricer(cf, n=10000)]
 pricerNames=["Reference","Cos Adapt","Flinn trunc", "AL"]
 refPrices = map(x-> priceEuropean(pricers[1], isCall, x, forward, τ, 1.0),strikes)
 for price in refPrices
@@ -247,7 +249,7 @@ forward=100.0
 params = HestonParams{Float64}(0.0001, 2.0, 0.04, -0.5, 3.0)
 cf = DefaultCharFunc(params)
 pricers= [ ALCharFuncPricer(cf, quadratureGL),  makeCosCharFuncPricer(cf, τ, 8),
-FlinnCharFuncPricer(HestonCVCharFunc(cf), τ, tTol = 1e-10, qTol=1e-10), ALCharFuncPricer(cf, n=10000)]
+FlinnCharFuncPricer(HestonCVCharFunc(cf, τ), τ, tTol = 1e-10, qTol=1e-10), ALCharFuncPricer(cf, n=10000)]
 pricerNames=["Reference","Cos Adapt","Flinn trunc", "AL"]
 refPrices = map(x-> priceEuropean(pricers[1], isCall, x, forward, τ, 1.0),strikes)
 for price in refPrices
@@ -275,7 +277,7 @@ forward = 100.0
 params = HestonParams{Float64}(0.0025, 0.1, 0.0001, 0.1, 3.0)
 cf = DefaultCharFunc(params)
 pricers= [ ALCharFuncPricer(cf, quadratureGL),  makeCosCharFuncPricer(cf, τ, 8),
-FlinnCharFuncPricer(HestonCVCharFunc(cf), τ, tTol = 1e-10, qTol=1e-10), ALCharFuncPricer(cf, n=10000)]
+FlinnCharFuncPricer(HestonCVCharFunc(cf, τ), τ, tTol = 1e-10, qTol=1e-10), ALCharFuncPricer(cf, n=10000)]
 pricerNames=["Reference","Cos Adapt","Flinn trunc", "AL"]
 refPrices = map(x-> priceEuropean(pricers[1], isCall, x, forward, τ, 1.0),strikes)
 for price in refPrices
@@ -392,7 +394,7 @@ end
     @test isapprox(refPrice, price, atol = 5e-4)
 #    @test isapprox(209.820637, price, atol = 1e-5)
 
-    ccf = HestonCVCharFunc(cf)
+    ccf = HestonCVCharFunc(cf, τ)
     pricer = FlinnCharFuncPricer(ccf, τ, qTol = tol, tTol = tol)
     price = priceEuropean(pricer, false, strike, forward, τ, 1.0)
     @test isapprox(refPrice, price, atol = 1e-6)

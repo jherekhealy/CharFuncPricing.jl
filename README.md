@@ -159,6 +159,43 @@ The result is
 
   and the effective accuracy is 3e-24. In total, `length(pricer.kcos[1,:])=31511` points are used, compared to 295 for an tolerance of 1e-10. For a tolerance of 1e-32, 450799 points are used. This means that algorithm is asymptotically linear on this example.
 
+
+## Joshi-Yang integration
+A direct implementation of Joshi-Yang pricing with a Black-Scholes control variate integrated along the real axis combined with a Gauss-Laguerre integration is given. 
+
+```julia
+using CharFuncPricing
+cf = DefaultCharFunc(HestonParams(0.04, 0.5, 0.04, -0.9, 1.0))
+T= 10.0
+pricer = JoshiYangCharFuncPricer(cf,T, n=10)
+strikes = [8000.0, 10000.0, 12000.0]
+prices = map(x->priceEuropean(pricer,x >= 10000.0, x, 10000.0,T,1.0) ,strikes)  
+```
+The output reads 
+`772.0090642032833
+1308.1993158318369
+290.12673794349496
+`
+which is in-line with the prices reported in Table 4.2 of the paper.
+
+While it is accurate at or around the money in general, for a small number of integration points, this is not always accurate for long-term deals. Furthermore, for long-term deals, the control variate volatility may *"explode"*. A counter-example is  `T=30.0, HestonParams{Float64}(1.0, 0.5, 1.0, 0.95, 1.0)`.
+
+
+## Stochastic volatility with correlated jumps (SVCJ)
+A straightforward (but not necessarily efficient) implementation of the SVCJ characteristic function of Duffie, Pan & Singleton is available and may be used with Cos, JoshiYang or AdaptiveFilon pricers.
+
+```julia
+using CharFuncPricing
+hestonParams = HestonParams(0.007569, 3.46, 0.008, -0.82, 0.14)
+params = SVCJParams(hestonParams, 0.47, -0.1, 0.0001^2, 0.05, -0.38) #from Broadie-Kaya paper
+df = exp(-0.0319)
+cf = DefaultCharFunc(params)
+pricerCos = CharFuncPricing.makeCosCharFuncPricer(cf,1.0,1024,16)
+price = priceEuropean(pricerCos,true, 100.0, 100.0/df,1.0,df)   
+```
+
+The result reads `6.861875621424775` while the reference from Broadie & Kaya is 6.8619.
+
 ## Testing
 
 In a Julia REPL session, enter `pkg` mode and run `test CharFuncPricing`.
@@ -171,9 +208,14 @@ Cumulants are checked against a Taylor series algorithmic differentiation.
 Andersen, L.B.G. and Lake, M. (2018) [Robust high-precision option pricing by
 Fourier transforms: Contour deformations and double-exponential quadrature](SSRN 3231626)
 
+Broadie, M. and Kaya, 0. (2006) [Exact simulation of stochastic volatility and other affine jump diffusion processes](https://www.researchgate.net/publication/220243902_Exact_Simulation_of_Stochastic_Volatility_and_Other_Affine_Jump_Diffusion_Processes)
+
+Duffie, D. Pan, J. and Singleton, K.(2000) [Transform Analysis and Asset Pricing for Affine Jump-Diffusion](https://www.darrellduffie.com/uploads/pubs/DuffiePanSingleton2000.pdf)
+
 Fang, F. and Oosterlee, C. W. (2008) [A novel pricing method for European options based on Fourier-cosine series expansions](https://epubs.siam.org/doi/abs/10.1137/080718061)
 
-Healy, J. (2021) [Applied Quantitative Finance for Equity Derivatives]()
+Joshi, M. and Yang, C. (2011) [Fourier transforms, option pricing and controls](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1941464)
+Healy, J. (2021) [Applied Quantitative Finance for Equity Derivatives](https://jherekhealy.github.io/)
 
 Le Floc'h, F. (2018) [More Robust Pricing of European Options Based on Fourier Cosine Series Expansions](https://arxiv.org/abs/2005.13248)
 
