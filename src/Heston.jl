@@ -51,7 +51,7 @@ model(cf::CVCharFunc) = model(cf.main)
 oneim(cf::CVCharFunc) = oneim(cf.main)
 
 HestonCVCharFunc(heston::CharFunc{HestonParams{T},CR},τ, kind::CVKind=InitialControlVariance()) where {T,CR} =
-    CVCharFunc{HestonParams{T},BlackParams{T},CR,InitialControlVariance}(
+    CVCharFunc{HestonParams{T},BlackParams{T},CR}(
         heston,
         DefaultCharFunc{BlackParams{T},CR}(
             BlackParams{T}(computeControlVariance(heston,τ,kind))
@@ -69,18 +69,18 @@ getControlVariance(    ::CharFunc{MT}) where {MT} = 0.0
 end
 
 @inline function computeControlVariance(
-    cf::CharFunc{HestonParams},
+    cf::CharFunc{HestonParams{TT}},
     τ::T, kind::FullControlVariance
-)::T where {T}
+)::T where {T,TT}
     p = model(cf)
     ektm = 1-exp(-p.κ*τ)
     return ektm*(p.v0-p.θ)/(p.κ*τ) + p.θ
 end
 
 @inline function computeControlVariance(
-    cf::CharFunc{HestonParams},
+    cf::CharFunc{HestonParams{TT}},
     τ::T, kind::InitialControlVariance
-)::T where {T}
+)::T where {T,TT}
     p = model(cf)
     p.v0
 end

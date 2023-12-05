@@ -137,7 +137,7 @@ params= HestonParams{Float64}(1.0, 0.01, 0.25, 0.95, 3.0)
 cf = DefaultCharFunc(params)
 pricers= [ ALCharFuncPricer(cf, quadratureGL),  makeCosCharFuncPricer(cf, τ, 8),
 FlinnCharFuncPricer(HestonCVCharFunc(cf,τ), τ, tTol = 1e-10, qTol=1e-10), 
-ALCharFuncPricer(cf, n=200), JoshiYangCharFuncPricer(cf,n=128)]
+ALCharFuncPricer(cf, n=200), JoshiYangCharFuncPricer(cf, τ, n=128)]
 pricerNames=["Reference","Cos Adapt","Flinn trunc", "AL", "Joshi"]
 isCall = false
 refPrices = map(x-> priceEuropean(pricers[1], isCall, x, forward, τ, 1.0),strikes)
