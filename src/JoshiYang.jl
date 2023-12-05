@@ -58,7 +58,7 @@ function computeControlVariance(
     phid0 = imag(b)
     # println("phi'(-i)=", phid0)
     variance = 2phid0 / τ 
-    return min(variance, 100*one(T))
+    return variance #return min(variance, 10000*one(T))
 end
 
 function priceEuropean(

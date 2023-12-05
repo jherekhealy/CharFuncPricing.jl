@@ -205,8 +205,8 @@ Unit tests verify the call and put option prices against the [reference prices](
 Cumulants are checked against a Taylor series algorithmic differentiation.
 
 ## References
-Andersen, L.B.G. and Lake, M. (2018) [Robust high-precision option pricing by
-Fourier transforms: Contour deformations and double-exponential quadrature](SSRN 3231626)
+Andersen, L.B.G. and Lake, M. (2018) "Robust high-precision option pricing by
+Fourier transforms: Contour deformations and double-exponential quadrature"(SSRN 3231626)
 
 Broadie, M. and Kaya, 0. (2006) [Exact simulation of stochastic volatility and other affine jump diffusion processes](https://www.researchgate.net/publication/220243902_Exact_Simulation_of_Stochastic_Volatility_and_Other_Affine_Jump_Diffusion_Processes)
 
@@ -215,6 +215,7 @@ Duffie, D. Pan, J. and Singleton, K.(2000) [Transform Analysis and Asset Pricing
 Fang, F. and Oosterlee, C. W. (2008) [A novel pricing method for European options based on Fourier-cosine series expansions](https://epubs.siam.org/doi/abs/10.1137/080718061)
 
 Joshi, M. and Yang, C. (2011) [Fourier transforms, option pricing and controls](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1941464)
+
 Healy, J. (2021) [Applied Quantitative Finance for Equity Derivatives](https://jherekhealy.github.io/)
 
 Le Floc'h, F. (2018) [More Robust Pricing of European Options Based on Fourier Cosine Series Expansions](https://arxiv.org/abs/2005.13248)
