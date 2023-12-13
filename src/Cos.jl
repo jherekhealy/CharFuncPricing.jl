@@ -1,4 +1,4 @@
-export CosCharFuncPricer, makeCosCharFuncPricer, priceEuropean
+export CosCharFuncPricer, makeCosCharFuncPricer, priceEuropean, priceDigital
 
 struct CosCharFuncPricer{T}
     τ::T
@@ -97,7 +97,7 @@ function priceEuropean(
         coeff = (-(estrike - ea) + estrike * (logStrike - a))*2 / (b - a)
         uk0 = coeff
 
-        @inbounds for i = 1:length(uk)
+        @inbounds for i = eachindex(uk)
             z = i * piHigh / (b - a)
             kPid = (logStrike - a) * z
             sk, ck = sincos(kPid)
@@ -107,13 +107,63 @@ function priceEuropean(
             uk[i] = coeff
         end
         sumPut = uk0 / 2
-        @inbounds for k = 1:length(uk)
+        @inbounds for k = eachindex(uk)
             sumPut += p.phi[k] * p.uk[k]
         end
         pricePut = discountDf * f * sumPut
     end
     if isCall
         return pricePut + discountDf * (forward - strike)
+    end
+    return pricePut
+end
+
+
+function priceDigital(
+    p::CosCharFuncPricer{T},
+    isCall::Bool,
+    strike::T,
+    forward::T,
+    τ::T,
+    discountDf::T,
+) where {T}
+    if τ != p.τ
+        throw(DomainError(τ, string("maturity is different from pricer maturity ", p.τ)))
+    end
+    local pricePut
+    x = log(forward / strike)
+    if x >= -p.a && x >= p.b
+        pricePut = 0
+    elseif x <= p.a || x <= -p.b
+        pricePut = discountDf 
+    else
+        uk = p.uk
+        a = p.a
+        b = p.b
+        ea = exp(a)
+        f = forward
+        piHigh = p.pi
+        logStrike = log(strike / f)
+        estrike = strike / f
+        coeff =  (logStrike - a)*2 / (b - a)
+        uk0 = coeff
+
+        @inbounds for i = eachindex(uk)
+            z = i * piHigh / (b - a)
+            kPid = (logStrike - a) * z
+            sk = sin(kPid)
+            psi = sk / z
+            coeff = psi*2 / (b - a)
+            uk[i] = coeff
+        end
+        sumPut = uk0 / 2
+        @inbounds for k = eachindex(uk)
+            sumPut += p.phi[k] * p.uk[k]
+        end
+        pricePut = discountDf * f * sumPut
+    end
+    if isCall
+        return - pricePut + discountDf
     end
     return pricePut
 end
