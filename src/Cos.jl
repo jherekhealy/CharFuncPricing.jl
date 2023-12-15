@@ -22,7 +22,7 @@ function makeCosCharFuncPricer(
     a = c1 - l * sqrt(abs(c2))
     b = c1 + l * sqrt(abs(c2))
     # println("a ",a," b ",b)   
-    return makeCosCharFuncPricer(cf,τ,m,a,b) 
+    return makeCosCharFuncPricer(cf, τ, m, a, b)
 end
 
 #On interval [a,b]
@@ -47,7 +47,7 @@ function makeCosCharFuncPricer(
     cf::CharFunc{MAINT,CR},
     τ::T,
     l::Int;
-    tol::T = 1e-8,
+    tol::T=1e-8,
 ) where {T,CR,MAINT}
     c1, c2, c4 = computeCumulants(cf, τ)
     c2 = c2 + sqrt(abs(c4))
@@ -94,7 +94,7 @@ function priceEuropean(
         piHigh = p.pi
         logStrike = log(strike / f)
         estrike = strike / f
-        coeff = (-(estrike - ea) + estrike * (logStrike - a))*2 / (b - a)
+        coeff = (-(estrike - ea) + estrike * (logStrike - a)) * 2 / (b - a)
         uk0 = coeff
 
         @inbounds for i = eachindex(uk)
@@ -103,7 +103,7 @@ function priceEuropean(
             sk, ck = sincos(kPid)
             chi = (ck * estrike - 1 * ea + z * (sk * estrike)) / (1 + z^2)
             psi = sk / z
-            coeff = (-chi + estrike * psi)*2 / (b - a)
+            coeff = (-chi + estrike * psi) * 2 / (b - a)
             uk[i] = coeff
         end
         sumPut = uk0 / 2
@@ -135,7 +135,7 @@ function priceDigital(
     if x >= -p.a && x >= p.b
         pricePut = 0
     elseif x <= p.a || x <= -p.b
-        pricePut = discountDf 
+        pricePut = discountDf
     else
         uk = p.uk
         a = p.a
@@ -145,7 +145,7 @@ function priceDigital(
         piHigh = p.pi
         logStrike = log(strike / f)
         estrike = strike / f
-        coeff =  (logStrike - a)*2 / (b - a)
+        coeff = (logStrike - a) * 2 / (b - a)
         uk0 = coeff
 
         @inbounds for i = eachindex(uk)
@@ -153,7 +153,7 @@ function priceDigital(
             kPid = (logStrike - a) * z
             sk = sin(kPid)
             psi = sk / z
-            coeff = psi*2 / (b - a)
+            coeff = psi * 2 / (b - a)
             uk[i] = coeff
         end
         sumPut = uk0 / 2
@@ -163,16 +163,16 @@ function priceDigital(
         pricePut = discountDf * f * sumPut
     end
     if isCall
-        return - pricePut + discountDf
+        return -pricePut + discountDf
     end
     return pricePut
 end
 
 
 using TaylorSeries
-function computeCumulants(cf::CharFunc{MT,CR}, τ::T) where {MT,CR,T} 
+function computeCumulants(cf::CharFunc{MT,CR}, τ::T) where {MT,CR,T}
     t = Taylor1(T, 5)
-    cft = evaluateLogCharFunc(cf,t,τ)
+    cft = evaluateLogCharFunc(cf, t, τ)
     return (imag(cft.coeffs[2]), -real(cft.coeffs[3]) * 2, real(cft.coeffs[5] * 2 * 3 * 4))
 end
 
