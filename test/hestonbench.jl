@@ -96,6 +96,33 @@ end
             end
         end
     end
+    pricesS1 = Vector{Float64}(undef, 0);
+    elapsed = @elapsed begin
+        for τ in τs, v0 in v0s, θ in θs, κ in κs, σ in σs, ρ in ρs
+        params = HestonParams(v0, κ, θ, ρ, σ)
+        cf = DefaultCharFunc(params)
+        m, tol = CharFuncPricing.findSwiftScaling(cf, τ, tol=1e-4)
+        refPricer = CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, m, 2, tol=max(2tol,1e-4))
+        for strike in strikes
+            price = priceEuropean(refPricer, isCall, strike, forward, τ, 1.0)
+            push!(pricesS1, price)
+        end
+    end
+    end
+
+    pricesJY1 =  Vector{Float64}(undef, 0);
+    elapsed = @elapsed begin
+        for τ in τs, v0 in v0s, θ in θs, κ in κs, σ in σs, ρ in ρs
+        params = HestonParams(v0, κ, θ, ρ, σ)
+        cf = DefaultCharFunc(params)
+        refPricer = CharFuncPricing.JoshiYangCharFuncPricer(cf, τ)
+        for strike in strikes
+            price = priceEuropean(refPricer, isCall, strike, forward, τ, 1.0)
+            push!(pricesJY1, price)
+        end
+    end
+    end
+
     pricesC1 = Vector{Float64}(undef, 0);
     elapsed = @elapsed begin
         for τ in τs, v0 in v0s, θ in θs, κ in κs, σ in σs, ρ in ρs
@@ -103,7 +130,7 @@ end
         cf = DefaultCharFunc(params)
         refPricer = makeCosCharFuncPricer(cf, τ, 200 , 8)
         for strike in strikes
-            price = priceEuropean(refPricer, isCall, strike, forward, 1.0)
+            price = priceEuropean(refPricer, isCall, strike, forward, τ, 1.0)
             push!(pricesC1, price)
         end
     end
@@ -116,7 +143,7 @@ end
         cf = DefaultCharFunc(params)
         refPricer = makeCosCharFuncPricer(cf, τ, 8)
         for strike in strikes
-            price = priceEuropean(refPricer, isCall, strike, forward, 1.0)
+            price = priceEuropean(refPricer, isCall, strike, forward, τ, 1.0)
             push!(pricesC2, price)
         end
     end

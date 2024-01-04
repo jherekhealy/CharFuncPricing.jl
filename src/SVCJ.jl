@@ -9,7 +9,7 @@ struct SVCJParams{T}
     jumpCorrelation::T
 end
 
-DefaultCharFunc(params::SVCJParams{Float64}) = DefaultCharFunc{SVCJParams{Float64},Complex}(params)
+DefaultCharFunc(params::SVCJParams{Float64}) = DefaultCharFunc{SVCJParams{Float64},Complex{Float64}}(params)
 
 function evaluateLogCharFunc(p::CharFunc{SVCJParams{TT},CR}, z::CT, T::TT) where {TT,CR,CT}
     modelj = CharFuncPricing.model(p)

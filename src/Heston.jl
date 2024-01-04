@@ -14,7 +14,7 @@ struct BlackParams{T}
     σ::T
 end
 DefaultCharFunc(params::HestonParams{Float64}) =
-    DefaultCharFunc{HestonParams{Float64},Complex}(params)
+    DefaultCharFunc{HestonParams{Float64},Complex{Float64}}(params)
 
 function evaluateLogCharFunc(
     cf::CharFunc{BlackParams{T},CR},

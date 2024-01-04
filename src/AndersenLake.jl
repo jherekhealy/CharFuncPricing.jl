@@ -141,7 +141,7 @@ function priceEuropean(
     ω = log(forward / strike)
     r = m.ρ - m.σ * ω / (m.v0 + m.κ * m.θ * τ)
     piHigh = T(Base.pi)# pi(cf)
-    angle = (r * ω < 0) ? piHigh / 12 * sign(ω) : Base.zero(cf)
+    angle = (r * ω < 0) ? piHigh / 12 * sign(ω) : Base.zero(T)
     α = optimalAlpha(p.cf, τ, ω)
     logmax = -log(floatmin(T)) - 8
     if α > 0
@@ -287,7 +287,7 @@ function optimalAlpha(
 
     # θ = p.θ
 
-    km0, kp0 = kmp(cf, τ, zero(cf))
+    km0, kp0 = kmp(cf, τ, zero(T))
     #critial moments solution of M(k) == 1/D * log(beta-D / beta+D)  k in k-, k+ or ... (eqn 36)
     #solve in between brackets (proposition 2) via Brent.
     cc1 = oneim(cf)

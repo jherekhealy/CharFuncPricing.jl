@@ -7,7 +7,7 @@ struct SchobelZhuParams{T}
     ρ::T
     σ::T
 end
-DefaultCharFunc(params::SchobelZhuParams{Float64}) = DefaultCharFunc{SchobelZhuParams{Float64},Complex}(params)
+DefaultCharFunc(params::SchobelZhuParams{Float64}) = DefaultCharFunc{SchobelZhuParams{Float64},Complex{Float64}}(params)
 
 cinf(params::SchobelZhuParams{T}, τ::T) where {T} = (params.v0^2/params.σ+τ*params.σ)/2 *sqrt(1-params.ρ^2)
 

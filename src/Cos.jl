@@ -160,7 +160,7 @@ function priceDigital(
         @inbounds for k = eachindex(uk)
             sumPut += p.phi[k] * p.uk[k]
         end
-        pricePut = discountDf * f * sumPut
+        pricePut = discountDf * sumPut
     end
     if isCall
         return -pricePut + discountDf

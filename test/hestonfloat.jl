@@ -8,11 +8,12 @@ params=HestonParams(1.0, 2.0, 0.0025, 0.5, 0.1)
 strikes = [100.0001, 101.0, 110.0, 200.0, 1000.0, 10000.0]
 cf = DefaultCharFunc(params)
 quadratureGL = ModlobQuadrature(1e-13)
+m, stol = CharFuncPricing.findSwiftScaling(cf,τ)
 pricers = [ALCharFuncPricer(cf, quadratureGL), makeCosCharFuncPricer(cf, τ, 200, 8),
  makeCosCharFuncPricer(cf, τ, 8, tol=1e-8), FlinnCharFuncPricer(cf, τ, tTol = 1e-10, qTol=1e-10),
  FlinnCharFuncPricer(cf, τ, tTol = 1e-40, qTol=1e-10), AdaptiveFlinnCharFuncPricer(cf, τ, qTol=1e-8), ALCharFuncPricer(cf, n=200),
- JoshiYangCharFuncPricer(cf,τ,n=64)]
-pricerNames = ["Reference", "Cos (M=200)", "Cos-Adaptive", "Flinn-Truncated (1e-8)", "Flinn-Truncated (1e-40)", "Flinn-Transformed", "Andersen-Lake (n=200)","Joshi-Yang (n=128)"]
+ JoshiYangCharFuncPricer(cf,τ,n=16),CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, m, 4)]
+pricerNames = ["Reference", "Cos (M=200)", "Cos-Adaptive", "Flinn-Truncated (1e-8)", "Flinn-Truncated (1e-40)", "Flinn-Transformed", "Andersen-Lake (n=200)","Joshi-Yang (n=64)","Swift"]
 isCall = false
 refPrices = map(x-> priceEuropean(pricers[1], isCall, x, forward, τ, 1.0),strikes)
 for price in refPrices
@@ -41,11 +42,14 @@ forward = 100.0
 params = HestonParams(0.0001, 0.1, 0.25, 0.95, 3.0)
 strike = 100.0001
 cf = DefaultCharFunc(params)
+m, stol = CharFuncPricing.findSwiftScaling(cf,τ)
 pricers = [ALCharFuncPricer(cf, quadratureGL),  makeCosCharFuncPricer(cf, τ, 8),
 makeCosCharFuncPricer(cf, τ, 200, 8), makeCosCharFuncPricer(cf, τ, 1000, 8),
- FlinnCharFuncPricer(cf, τ, tTol = 1e-10, qTol=1e-10),ALCharFuncPricer(cf, n=200)]
+ FlinnCharFuncPricer(cf, τ, tTol = 1e-10, qTol=1e-10),ALCharFuncPricer(cf, n=200),
+ JoshiYangCharFuncPricer(cf,τ, n=64),
+ CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, m, 4)]
  pricerNames = ["Reference",  "Cos-Adaptive","Cos (M=200)","Cos (M=1000)",
-  "Flinn-Truncated (1e-10)",  "Andersen-Lake (n=200)"]
+  "Flinn-Truncated (1e-10)",  "Andersen-Lake (n=200)","Joshi-Yang","Swift"]
 
 isCall = false
 refPrices = map(x-> priceEuropean(pricers[1], isCall, x, forward, τ, 1.0),strikes)
@@ -71,9 +75,10 @@ prices = map(x -> priceEuropean(pricers[5], isCall, x, forward, τ, 1.0), strike
 #10.0 0.0001 0.01 1.0 -0.95 3.0 10000.0 9900.0 9882.675792888303
 params = HestonParams(0.0001, 0.01, 1.0, -0.95, 3.0)
 cf = DefaultCharFunc(params)
+m, stol = CharFuncPricing.findSwiftScaling(cf,τ)
 pricers=[ALCharFuncPricer(cf, quadratureGL), makeCosCharFuncPricer(cf, τ, 8),
- FlinnCharFuncPricer(cf, τ, tTol = 1e-10, qTol=1e-10), ALCharFuncPricer(cf, n=200)]
- pricerNames=["Reference", "Cos-Adaptive 8", "Flinn Trunc 1e-10", "AndersenLake"]
+ FlinnCharFuncPricer(cf, τ, tTol = 1e-10, qTol=1e-10), ALCharFuncPricer(cf, n=200), CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, m, 4)]
+ pricerNames=["Reference", "Cos-Adaptive 8", "Flinn Trunc 1e-10", "AndersenLake","Swift"]
 isCall = false
 refPrices = map(x-> priceEuropean(pricers[1], isCall, x, forward, τ, 1.0),strikes)
 for price in refPrices
@@ -691,8 +696,9 @@ end
     l = 12
     refPricer = makeCosCharFuncPricer(cf, τ, 1024, 32)
     pricer = makeCosCharFuncPricer(cf, τ, m, l)
-    for strike = 1.0:0.025:1.5
-        refPrice = priceEuropean(refPricer, true, strike, spot,  τ,df)
+    strikes = 1.0:0.025:1.5
+    refPrices = map(strike -> priceEuropean(refPricer, true, strike, spot,  τ,df), strikes)
+    for (strike,refPrice) = zip(strikes,refPrices)
         price = priceEuropean(pricer, true, strike, spot, τ, df)
         println(
             strike,
@@ -706,6 +712,165 @@ end
             price / refPrice - 1,
         )
         @test isapprox(refPrice, price, atol = 1e-15)
+    end
+    ms,tol = CharFuncPricing.findSwiftScaling(cf, τ)
+    pricerS = SwiftCharFuncPricer(cf, τ, ms,l)
+    for (strike,refPrice) = zip(strikes,refPrices)
+        price = priceEuropean(pricerS, true, strike, spot, τ, df)
+        println(
+            strike,
+            " ",
+            price,
+            " ",
+            refPrice,
+            " ",
+            price - refPrice,
+            " ",
+            price / refPrice - 1,
+        )        
+    end
+end
+
+
+@testset "LFSwiftSet1" begin
+    r = 0.0
+    q = 0.0
+    κ = 0.1
+    θ = 0.01
+    σ = 2.0
+    ρ = 0.5
+    v0 = 0.0225
+    τ = 1.0
+    spot = 1e6
+
+    spot *= exp((r - q) * τ)
+    df = exp(-r * τ)
+    params = HestonParams{Float64}(v0, κ, θ, ρ, σ)
+    cf = DefaultCharFunc(params)
+    m = 256
+    l = 12
+    refPricer = ALCharFuncPricer(cf,  n=512)
+    pricer = makeCosCharFuncPricer(cf, τ, m, l)
+    strikes = [0.25e6,1e6,4e6]
+    refPrices = map(strike -> priceEuropean(refPricer, strike > spot, strike, spot,  τ,df), strikes)
+    for (strike,refPrice) = zip(strikes,refPrices)
+        price = priceEuropean(pricer, strike > spot, strike, spot, τ, df)
+        println(
+            strike,
+            " ",
+            price,
+            " ",
+            refPrice,
+            " ",
+            price - refPrice,
+            " ",
+            price / refPrice - 1,
+        )
+        @test isapprox(refPrice, price, atol = 5e-2*refPrice)
+    end
+    ms,tol = CharFuncPricing.findSwiftScaling(cf, τ)
+    pricerS = SwiftCharFuncPricer(cf, τ, ms,l,tol=1.0)    
+    for (strike,refPrice) = zip(strikes,refPrices)
+        price = priceEuropean(pricerS, strike > spot, strike, spot, τ, df)
+        println(
+            strike,
+            " ",
+            price,
+            " ",
+            refPrice,
+            " ",
+            price - refPrice,
+            " ",
+            price / refPrice - 1,
+        )        
+    end
+    #vieta best.  simpson worse
+    ms,tol = CharFuncPricing.findSwiftScaling(cf, τ,tol=1e-4)
+    strikes = range(0.25e6,stop=4e6, length=51)
+    refPrices = map(strike -> priceEuropean(refPricer, strike > spot, strike, spot,  τ,df), strikes)
+    names = ["Vieta","Trapezoidal","EM1"]
+    pricers = [CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, ms,l,tol=1.0,densityCalculator=CharFuncPricing.VietaDensityCalculator()),
+    CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, ms,l,tol=1.0,densityCalculator=CharFuncPricing.TrapezoidalDensityCalculator()),
+    CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, ms,l,tol=1.0,densityCalculator=CharFuncPricing.EulerMaclaurinDensityCalculator{1}())]
+    for (name,pricer) = zip(names,pricers)
+        pricesV = map(strike -> priceEuropean(pricer, strike > spot, strike, spot,  τ,df,payoffCalculator=CharFuncPricing.VietaPayoffCalculator()), strikes)
+        println(name, "-Vieta ",rmsd(pricesV,refPrices)," ",maximum(abs.(pricesV-refPrices)))        
+        pricesT = map(strike -> priceEuropean(pricer, strike > spot, strike, spot,  τ,df,payoffCalculator=CharFuncPricing.EulerMaclaurinPayoffCalculator{0}()), strikes)
+        println(name, "-Trapezoidal ",rmsd(pricesT,refPrices)," ",maximum(abs.(pricesT-refPrices)))        
+        pricesEM1 = map(strike -> priceEuropean(pricer, strike > spot, strike, spot,  τ,df,payoffCalculator=CharFuncPricing.EulerMaclaurinPayoffCalculator{1}()), strikes)
+        println(name, "-EM1 ",rmsd(pricesEM1,refPrices)," ",maximum(abs.(pricesEM1-refPrices)))        
+    end
+end
+
+
+@testset "LFSwiftSet2" begin
+    r = 0.0
+    q = 0.0
+    κ = 1.0
+    θ = 0.1
+    σ = 1.0
+    ρ = -0.9
+    v0 = 0.1
+    τ = 2.0/365
+    spot = 1.0
+
+    spot *= exp((r - q) * τ)
+    df = exp(-r * τ)
+    params = HestonParams{Float64}(v0, κ, θ, ρ, σ)
+    cf = DefaultCharFunc(params)
+    m = 256
+    l = 12
+    refPricer = ALCharFuncPricer(cf,  n=512)
+    pricer = makeCosCharFuncPricer(cf, τ, m, l)
+    strikes = [1.0,1.0064,1.064]
+    refPrices = map(strike -> priceEuropean(refPricer, strike > spot, strike, spot,  τ,df), strikes)
+    for (strike,refPrice) = zip(strikes,refPrices)
+        price = priceEuropean(pricer, strike > spot, strike, spot, τ, df)
+        println(
+            strike,
+            " ",
+            price,
+            " ",
+            refPrice,
+            " ",
+            price - refPrice,
+            " ",
+            price / refPrice - 1,
+        )
+        @test isapprox(refPrice, price, atol = 1e-15)
+    end    
+    ms,tol = CharFuncPricing.findSwiftScaling(cf, τ)
+    pricerS = CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, ms,l,tol=1.0)    
+    for (strike,refPrice) = zip(strikes,refPrices)
+        price = priceEuropean(pricerS, strike > spot, strike, spot, τ, df)
+        println(
+            strike,
+            " ",
+            price,
+            " ",
+            refPrice,
+            " ",
+            price - refPrice,
+            " ",
+            price / refPrice - 1,
+        )        
+    end
+    #vieta/trap better than simpson
+    ms,tol = CharFuncPricing.findSwiftScaling(cf, τ,tol=1e-4)
+   strikes = range(0.9,stop=1.1, length=51)
+    refPrices = map(strike -> priceEuropean(refPricer, strike > spot, strike, spot,  τ,df), strikes)
+    names = ["Vieta","Trapezoidal","EM1"]
+    pricers = [CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, ms,l,tol=1.0,densityCalculator=CharFuncPricing.VietaDensityCalculator()),
+    CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, ms,l,tol=1.0,densityCalculator=CharFuncPricing.TrapezoidalDensityCalculator()),
+    CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, ms,l,tol=1.0,densityCalculator=CharFuncPricing.EulerMaclaurinDensityCalculator{1}())]
+    # pr icesV = Vector(length(names))
+    for (name,pricer) = zip(names,pricers)
+        pricesV = map(strike -> priceEuropean(pricer, strike > spot, strike, spot,  τ,df,payoffCalculator=CharFuncPricing.VietaPayoffCalculator()), strikes)
+        println(name, "-Vieta ",rmsd(pricesV,refPrices)," ",maximum(abs.(pricesV-refPrices)))        
+        pricesT = map(strike -> priceEuropean(pricer, strike > spot, strike, spot,  τ,df,payoffCalculator=CharFuncPricing.EulerMaclaurinPayoffCalculator{0}()), strikes)
+        println(name, "-Trapezoidal ",rmsd(pricesT,refPrices)," ",maximum(abs.(pricesT-refPrices)))        
+        pricesEM1 = map(strike -> priceEuropean(pricer, strike > spot, strike, spot,  τ,df,payoffCalculator=CharFuncPricing.EulerMaclaurinPayoffCalculator{1}()), strikes)
+        println(name, "-EM1 ",rmsd(pricesEM1,refPrices)," ",maximum(abs.(pricesEM1-refPrices)))        
     end
 end
 
@@ -792,4 +957,119 @@ end
         println(Float64(strike), " C ", price, " ", price - refCall)
         @test isapprox(Float64(price - refCall), 0, atol = 2e-14)
     end
+    m,tol = CharFuncPricing.findSwiftScaling(cf, τ)
+    pricerS = SwiftCharFuncPricer(cf, τ, m, 12)
+    for (strike, refCall, refPut) in zip(strikes, alanCalls, alanPuts)
+        price = priceEuropean(pricerS, false, strike, spot, τ, df)
+        println(Float64(strike), " P ", price, " ", price - refPut)
+        @test isapprox(Float64(price - refPut), 0, atol = 2e-7)
+        price = priceEuropean(pricerS, true, strike, spot, τ,  df)
+        println(Float64(strike), " C ", price, " ", price - refCall)
+        @test isapprox(Float64(price - refCall), 0, atol = 2e-7)
+    end
 end
+
+#=
+#blackscholes like
+params = HestonParams{Float64}(0.25^2, 1.0, 0.25^2, 0.0, 0.01)
+cf = DefaultCharFunc(params)
+refPricer = ALCharFuncPricer(cf,  n=512)
+τ = 10.0
+m, stol = CharFuncPricing.findSwiftScaling(cf,τ)
+refPrices = map(strike -> priceEuropean(refPricer, strike > f, strike, f,  τ,df), strikes)
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j), strikes)
+k=-pricerS.k1+1:pricerS.k1
+
+narrowStrikes = strikes[end:end]
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j*128), narrowStrikes)
+refUk = copy(pricerS.uk)
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j), narrowStrikes)
+
+plot(k, refUk[ifelse.(k.>0,k,k.+2pricerS.k1)] ,label="Reference",xlab=L"k",ylab=L"V_{6,k}")
+plot!(k, pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] ,label="Second Euler-Maclaurin of order 0")
+plot(k, pricerS.cl[ifelse.(k.>0,k,k.+2pricerS.k1)],label="",xlab=L"k", ylab=L"c_{6,k}")
+
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j), narrowStrikes)
+plot(k, abs.(pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] ./ refUk[ifelse.(k.>0,k,k.+2pricerS.k1)].-1),label="Second Euler-Maclaurin of order 0")
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j, payoffCalculator=CharFuncPricing.EulerMaclaurinPayoffCalculator{0}()), narrowStrikes)
+plot!(k, abs.(pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] ./ refUk[ifelse.(k.>0,k,k.+2pricerS.k1)].-1),label="First Euler-Maclaurin of order 0")
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j, payoffCalculator=CharFuncPricing.EulerMaclaurinPayoffCalculator{1}()), narrowStrikes)
+plot!(k, abs.(pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] ./ refUk[ifelse.(k.>0,k,k.+2pricerS.k1)].-1),label="First Euler-Maclaurin of order 1")
+#prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j, payoffCalculator=CharFuncPricing.IntegralPayoffCalculator(CharFuncPricing.MidPoint)), narrowStrikes)
+#plot!(k, abs.(pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] ./ refUk[ifelse.(k.>0,k,k.+2pricerS.k1)].-1),label="Mid-point rule")
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j, payoffCalculator=CharFuncPricing.IntegralPayoffCalculator(CharFuncPricing.Simpson)), narrowStrikes)
+plot!(k, abs.(pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] ./ refUk[ifelse.(k.>0,k,k.+2pricerS.k1)].-1),label="Simpson rule")
+#prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j, payoffCalculator=CharFuncPricing.IntegralPayoffCalculator(CharFuncPricing.Boole)), narrowStrikes)
+#plot!(k, abs.(pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] ./ refUk[ifelse.(k.>0,k,k.+2pricerS.k1)].-1),label="Boole rule")
+
+plot!(yscale=:log10, legend=:bottomright, xlab=L"k", ylab=string("Relative error in ",L"V_{m,k}"),yticks=[1e-5,1e-3,1e-1,10])
+
+#direct errors
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j), narrowStrikes)
+plot(k, pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] .- refUk[ifelse.(k.>0,k,k.+2pricerS.k1)],label="Second Euler-Maclaurin of order 0")
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j, payoffCalculator=CharFuncPricing.EulerMaclaurinPayoffCalculator{0}()), narrowStrikes)
+plot!(k, pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] .- refUk[ifelse.(k.>0,k,k.+2pricerS.k1)],label="First Euler-Maclaurin of order 0")
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j, payoffCalculator=CharFuncPricing.EulerMaclaurinPayoffCalculator{1}()), narrowStrikes)
+plot!(k, pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] .- refUk[ifelse.(k.>0,k,k.+2pricerS.k1)],label="First Euler-Maclaurin of order 1")
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j, payoffCalculator=CharFuncPricing.IntegralPayoffCalculator(CharFuncPricing.MidPoint)), narrowStrikes)
+plot!(k, pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] .- refUk[ifelse.(k.>0,k,k.+2pricerS.k1)],label="Mid-point rule")
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j, payoffCalculator=CharFuncPricing.IntegralPayoffCalculator(CharFuncPricing.Simpson)), narrowStrikes)
+plot!(k, pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] .- refUk[ifelse.(k.>0,k,k.+2pricerS.k1)],label="Simpson rule")
+#abs errors
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j), narrowStrikes)
+plot(k, abs.(pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] .- refUk[ifelse.(k.>0,k,k.+2pricerS.k1)]),label="Second Euler-Maclaurin of order 0")
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j, payoffCalculator=CharFuncPricing.EulerMaclaurinPayoffCalculator{0}()), narrowStrikes)
+plot!(k, abs.(pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] .- refUk[ifelse.(k.>0,k,k.+2pricerS.k1)]),label="First Euler-Maclaurin of order 0")
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j, payoffCalculator=CharFuncPricing.EulerMaclaurinPayoffCalculator{1}()), narrowStrikes)
+plot!(k, abs.(pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] .- refUk[ifelse.(k.>0,k,k.+2pricerS.k1)]),label="First Euler-Maclaurin of order 1")
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j, payoffCalculator=CharFuncPricing.IntegralPayoffCalculator(CharFuncPricing.MidPoint)), narrowStrikes)
+plot!(k, abs.(pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] .- refUk[ifelse.(k.>0,k,k.+2pricerS.k1)]),label="Mid-point rule")
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j, payoffCalculator=CharFuncPricing.IntegralPayoffCalculator(CharFuncPricing.Simpson)), narrowStrikes)
+plot!(k, abs.(pricerS.uk[ifelse.(k.>0,k,k.+2pricerS.k1)] .- refUk[ifelse.(k.>0,k,k.+2pricerS.k1)]),label="Simpson rule")
+
+strikes=range(0.9,stop=1.1, length=101)
+useVaryingJ = false
+refPrices = map(strike -> priceEuropean(refPricer, strike > f, strike, f,  τ,df), strikes)
+prices = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j,useVaryingJ=useVaryingJ), strikes)
+prices128 = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j*128,useVaryingJ=useVaryingJ), strikes)
+pricesEM0 = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j,useVaryingJ=useVaryingJ, payoffCalculator=CharFuncPricing.EulerMaclaurinPayoffCalculator{0}()),strikes)
+pricesEM1 = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j,useVaryingJ=useVaryingJ, payoffCalculator=CharFuncPricing.EulerMaclaurinPayoffCalculator{1}()), strikes)
+pricesS = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j,useVaryingJ=useVaryingJ, payoffCalculator=CharFuncPricing.IntegralPayoffCalculator(CharFuncPricing.Simpson)), strikes)
+
+
+plot(strikes, abs.(prices-refPrices),label="Second Euler-Maclaurin of order 0" )
+plot!(strikes, abs.(pricesEM0-refPrices),label="First Euler-Maclaurin of order 0" )
+plot!(strikes, abs.(pricesEM1-refPrices),label="First Euler-Maclaurin of order 1" )
+plot!(strikes, abs.(prices128-refPrices),label="Large J limit" )
+plot!(strikes, abs.(pricesS-refPrices),label="Simpson rule" )
+plot!(xlab="Strike",ylab="Error in option price",yscale=:log10,legend=:bottomleft)
+
+using LaTeXStrings
+ms=6;l=8;
+pricerV = CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, ms,l,tol=1.0, densityCalculator=CharFuncPricing.VietaDensityCalculator())
+pricerV8 = CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, ms,l,tol=1.0,Jfactor=8)
+pricerT = CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, ms, l, tol=1.0, densityCalculator=CharFuncPricing.TrapezoidalDensityCalculator())
+pricerEM1 = CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, ms, l, tol=1.0, densityCalculator=CharFuncPricing.EulerMaclaurinSlowDensityCalculator{1}())
+ k=-pricerV8.k1+1:pricerV8.k1
+ plot(k,pricerV.cl[ifelse.(k.>0,k,k.+2pricerV8.k1)]-pricerV8.cl[ifelse.(k.>0,k,k.+2pricerV8.k1)],label="Vieta")
+plot!(k,pricerT.cl[ifelse.(k.>0,k,k.+2pricerV8.k1)]-pricerV8.cl[ifelse.(k.>0,k,k.+2pricerV8.k1)],label="Trapezoidal")
+plot!(k,pricerEM1.cl[ifelse.(k.>0,k,k.+2pricerV8.k1)]-pricerV8.cl[ifelse.(k.>0,k,k.+2pricerV8.k1)],label="Euler Maclaurin order 1")
+plot!(ylab=string("Error in ",L"c_{6,k}"),xlab=L"k")
+plot!(size=(400,400),margins=3Plots.mm)
+
+refPrices = map(strike -> priceEuropean(refPricer, strike > f, strike, f,  τ,df), strikes)
+prices = map(strike -> priceEuropean(pricerV, strike > f, strike, f,  τ,df,J=pricerV.j*16), strikes)
+prices8 = map(strike -> priceEuropean(pricerV8, strike > f, strike, f,  τ,df,J=pricerV.j*16), strikes)
+pricesT = map(strike -> priceEuropean(pricerT, strike > f, strike, f,  τ,df,J=pricerV.j*16), strikes)
+pricesEM1 = map(strike -> priceEuropean(pricerEM1, strike > f, strike, f,  τ,df,J=pricerV.j*16), strikes)
+#pricesS = map(strike -> priceEuropean(pricerS, strike > f, strike, f,  τ,df,J=pricerS.j,useVaryingJ=useVaryingJ, payoffCalculator=CharFuncPricing.IntegralPayoffCalculator(CharFuncPricing.Simpson)), strikes)
+
+plot(strikes, abs.(prices-refPrices),label="Second Euler-Maclaurin of order 0" )
+plot!(strikes, abs.(pricesT-refPrices),label="First Euler-Maclaurin of order 0" )
+plot!(strikes, abs.(pricesEM1-refPrices),label="First Euler-Maclaurin of order 1" )
+plot!(strikes, abs.(prices8-refPrices),label="Large J limit" )
+#plot!(strikes, abs.(pricesS-refPrices),label="Simpson rule" )
+plot!(xlab="Strike",ylab="Error in option price",legend=:bottomright)
+
+
+=#

@@ -33,4 +33,5 @@ include("NemoCharFunc.jl")
 include("GaussLobatto.jl")
 include("AndersenLake.jl")
 include("JoshiYang.jl")
+include("Swift.jl")
 end

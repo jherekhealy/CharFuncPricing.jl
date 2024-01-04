@@ -11,7 +11,9 @@ struct CGMYParams{T}
     CGMYParams(C::T, G::T, M::T, Y::T, σ::T) where {T} = new{T}(C, G, M, Y, σ, driftCorrection(C, G, M, Y))
 end
 
-DefaultCharFunc(params::CGMYParams{Float64}) = DefaultCharFunc{CGMYParams{Float64},Complex}(params)
+asymptoticLogOrder(model::CGMYParams{T}) where {T} = model.Y
+
+DefaultCharFunc(params::CGMYParams{Float64}) = DefaultCharFunc{CGMYParams{Float64},Complex{Float64}}(params)
 
 @inline function evaluateCharFunc(p::CharFunc{CGMYParams{T},CR}, z::CT, τ::T)::CR where {T,CR,CT}
     return exp(evaluateLogCharFunc(p, z, τ))
