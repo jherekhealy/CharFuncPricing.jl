@@ -19,18 +19,17 @@ struct JoshiYangCharFuncPricer{T,CR}
         n=64
     ) where {MAINT,CR,T}
         blackVariance = abs(computeControlVariance(cf, τ, JoshiYangControlVariance()))
-        phicv = if blackVariance == zero(T)
-            cf
-        else
-            blackCf = DefaultCharFunc{BlackParams{T},CR}(
-                BlackParams{T}(sqrt(blackVariance))
-            )
-            CVCharFunc(cf, blackCf)
-        end
+        phicv = makeCVCharFunc(cf, blackVariance)
 
         x, w = gausslaguerre(n)
         iPure = oneim(cf)
-        @. w *= exp(x)
+        @inbounds for i = eachindex(w)
+            if w[i] != 0 && x[i] < 600
+                w[i] *= exp(x[i])
+            else
+                w[i] = 0.0
+            end ##else overflow
+        end
         phi = @. (evaluateCharFunc(phicv, x - iPure, τ) / (x * (x - iPure)))
 
         return new{T,CR}(τ, w, x, phi, blackVariance, const_pi(cf))
@@ -40,6 +39,16 @@ end
 Base.broadcastable(p::JoshiYangCharFuncPricer) = Ref(p)
 Base.broadcastable(p::CVCharFunc) = Ref(p)
 Base.broadcastable(p::DefaultCharFunc) = Ref(p)
+
+makeCVCharFunc(cf::CharFunc{MAINT,CR}, blackVariance::T) where {MAINT,CR,T} =
+    if blackVariance == zero(T)
+        cf
+    else
+        blackCf = DefaultCharFunc{BlackParams{T},CR}(
+            BlackParams{T}(sqrt(blackVariance))
+        )
+        CVCharFunc(cf, blackCf)
+    end
 
 function computeControlVariance(
     cf::CharFunc,
@@ -57,7 +66,7 @@ function computeControlVariance(
     a, b = evaluateCharFuncAndDerivative(cf, -1im, τ)
     phid0 = imag(b)
     # println("phi'(-i)=", phid0)
-    variance = 2phid0 / τ 
+    variance = 2phid0 / τ
     return variance #return min(variance, 10000*one(T))
 end
 

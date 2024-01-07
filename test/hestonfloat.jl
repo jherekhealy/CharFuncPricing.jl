@@ -967,6 +967,17 @@ end
         println(Float64(strike), " C ", price, " ", price - refCall)
         @test isapprox(Float64(price - refCall), 0, atol = 2e-7)
     end
+    #Filon/Flinn require many points (Esp. Filon)
+    pricerS = FlinnCharFuncPricer(cf, τ, qTol=1e-12, tTol=1e-12)
+    for (strike, refCall, refPut) in zip(strikes, alanCalls, alanPuts)
+        price = priceEuropean(pricerS, false, strike, spot, τ, df)
+        println(Float64(strike), " P ", price, " ", price - refPut)
+        @test isapprox(Float64(price - refPut), 0, atol = 2e-7)
+        price = priceEuropean(pricerS, true, strike, spot, τ,  df)
+        println(Float64(strike), " C ", price, " ", price - refCall)
+        @test isapprox(Float64(price - refCall), 0, atol = 2e-7)
+    end
+    
 end
 
 #=

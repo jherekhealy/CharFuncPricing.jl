@@ -1,6 +1,6 @@
 export HestonParams, evaluateCharFunc, evaluateLogCharFunc, computeCumulants
 export BlackParams, evaluateCharFuncAndDerivative
-export CVCharFunc, HestonCVCharFunc, cinf
+export HestonCVCharFunc, cinf
 
 struct HestonParams{T}
     v0::T
@@ -9,46 +9,8 @@ struct HestonParams{T}
     ρ::T
     σ::T
 end
-
-struct BlackParams{T}
-    σ::T
-end
 DefaultCharFunc(params::HestonParams{Float64}) =
     DefaultCharFunc{HestonParams{Float64},Complex{Float64}}(params)
-
-function evaluateLogCharFunc(
-    cf::CharFunc{BlackParams{T},CR},
-    z::CT,
-    τ::T,
-) where {T,CR,CT}
-    cc1 = oneim(cf)
-    p = cf.model
-    return -p.σ^2 * τ / 2 * z * (z + cc1)
-end
-
-function evaluateLogCharFuncAndDerivative(
-    cf::CharFunc{BlackParams{T},CR},
-    z::CT,
-    τ::T,
-)::Tuple{CR,CR} where {T,CR,CT}
-    cc1 = oneim(cf)
-    p = cf.model
-    phi = -p.σ^2 * τ / 2 * z * (z + cc1)
-    phi_d = -p.σ^2 * τ / 2 * (2 * z + cc1)
-    return phi, phi_d
-end
-
-abstract type CVKind end
-struct InitialControlVariance <: CVKind end
-struct FullControlVariance <: CVKind end
-
-struct CVCharFunc{MAINT,CONTROLT,CR} <: CharFunc{MAINT,CR}
-    main::CharFunc{MAINT,CR}
-    control::CharFunc{CONTROLT,CR}
-end
-
-model(cf::CVCharFunc) = model(cf.main)
-oneim(cf::CVCharFunc) = oneim(cf.main)
 
 HestonCVCharFunc(heston::CharFunc{HestonParams{T},CR},τ, kind::CVKind=InitialControlVariance()) where {T,CR} =
     CVCharFunc{HestonParams{T},BlackParams{T},CR}(
@@ -60,13 +22,6 @@ HestonCVCharFunc(heston::CharFunc{HestonParams{T},CR},τ, kind::CVKind=InitialCo
 
 makeCVCharFunc(heston::CharFunc{HestonParams{T},CR}, τ, kind::CVKind)  where {T,CR} = HestonCVCharFunc(heston,kind)
 
-
-getControlVariance(    ::CharFunc{MT}) where {MT} = 0.0
-
-@inline function getControlVariance(
-    cf::CVCharFunc{MT,BlackParams{T}})::T where {MT,T}
-    return model(cf.control).σ^2
-end
 
 @inline function computeControlVariance(
     cf::CharFunc{HestonParams{TT}},
@@ -85,24 +40,6 @@ end
     p.v0
 end
 
-function evaluateCharFunc(
-    p::CVCharFunc{MAINT,CONTROLT,CR},
-    z::CT,
-    τ::T) where {T,CR,CT,MAINT,CONTROLT}
-    phi = evaluateCharFunc(p.main, z, τ)
-    phiB = evaluateCharFunc(p.control, z, τ)
-    return phi - phiB
-end
-
-function evaluateCharFuncAndDerivative(
-    p::CVCharFunc{MAINT,CONTROLT,CR},
-    z::CT,
-    τ::T,
-)::Tuple{CR,CR} where {T,CR,CT,MAINT,CONTROLT}
-    phi, phi_d = evaluateCharFuncAndDerivative(p.main, z, τ)
-    phiB, phiB_d = evaluateCharFuncAndDerivative(p.control, z, τ)
-    return (phi - phiB, phi_d - phiB_d)
-end
 
 #cinf(params::HestonCVParams{T}, τ::T) where {T} = cinf(params.heston, τ)
 

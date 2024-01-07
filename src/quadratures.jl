@@ -31,7 +31,7 @@ function integrateQuinticHermite(
     b::T,
     tol::T,
     maxRecursionDepth::Int;
-    integralEstimate::T = Base.zero(T)
+    integralEstimate::T=Base.zero(T)
 )::T where {T}
     if tol < eps(T)
         tol = eps(T)
@@ -183,7 +183,7 @@ const nw1_modsim = [0.1271031188518578 -0.5084124754074312 0.7626187131111468 -0
     0.3362832433427012 -0.6725664866854024 0.0 0.6725664866854024 -0.3362832433427012
     0.5684224278099782 -0.2842112139049893 -0.5684224278099774 -0.2842112139049893 0.5684224278099782
     0.6725664866854023 0.3362832433427017 0.0 -0.3362832433427017 -0.6725664866854023]
-function modsim(f, a::T, b::T, tol::T; maxRecursionDepth::Int = 20)::T where {T}
+function modsim(f, a::T, b::T, tol::T; maxRecursionDepth::Int=20)::T where {T}
     if tol < eps(T)
         tol = sqrt(eps(T))
     end
@@ -277,29 +277,33 @@ end
 
 
 
-function integrateSimpsonGG(f, a::T, b::T, tol::T; maxRecursionDepth::Int = 20)::T where {T}
+function integrateSimpsonGG(f, a::T, b::T, tol::T; maxRecursionDepth::Int=20, integralEstimate=zero(T))::T where {T}
     if b <= a || isnan(tol) || isinf(tol)
         return Base.zero(T)
     end
 
-    if tol < eps(T) 
-        tol = eps(T)
+    if tol == zero(T)
+        tol= eps(T)
     end
-
     c = (a + b) / 2
 
     fa = f(a)
     fm = f(c)
     fb = f(b)
-    yy0 = f(a + 0.9501 * (b - a))
-    yy1 = f(a + 0.2311 * (b - a))
-    yy2 = f(a + 0.6068 * (b - a))
-    yy3 = f(a + 0.4860 * (b - a))
-    yy4 = f(a + 0.8913 * (b - a))
+    is = if (integralEstimate == zero(T))
+        yy0 = f(a + 0.9501 * (b - a))
+        yy1 = f(a + 0.2311 * (b - a))
+        yy2 = f(a + 0.6068 * (b - a))
+        yy3 = f(a + 0.4860 * (b - a))
+        yy4 = f(a + 0.8913 * (b - a))
 
-    is = (b - a) / 8 * (fa + fm + fb + yy0 + yy1 + yy2 + yy3 + yy4)
-    if is == 0
-        is = b - a
+        isLocal = (b - a) / 8 * (fa + fm + fb + yy0 + yy1 + yy2 + yy3 + yy4)
+        if isLocal == 0
+            isLocal = b - a
+        end
+        isLocal
+    else
+        integralEstimate
     end
     is = is * tol / eps(T)
 
@@ -323,7 +327,7 @@ function adaptiveSimpsonAux(
     fmr = f(b - h)
     i1 = h / 1.5 * (fa + 4 * fm + fb)
     i2 = h / 3 * (fa + 4 * (fml + fmr) + 2 * fm + fb)
-    #i1 = (16 * i2 - i1) / 15
+    i1 = (16 * i2 - i1) / 15
     if ((is + (i1 - i2)) == is) || (m <= a) || (b <= m) || isnan(i1) || isinf(i1)
         if ((m <= a) || (b <= m))
             #Interval contains no more machine numbers, required tolerance may not be met
@@ -341,6 +345,16 @@ function adaptiveSimpsonAux(
 end
 
 
+function simpsonAux(
+    a::T,
+    b::T,
+    fa::T,
+    fb::T,
+    fm::T
+)::T where {T}
+    (b - a) / 6 * (fa + 4 * fm + fb)
+end
+
 
 
 const nulw_coteda = [0.1101854769234527e-01 -0.8814838153876216e-01 0.3085193353856676 -0.6170386707713351 0.7712983384641688
@@ -356,14 +370,14 @@ const nw2_coteda = [nulw_coteda[1:8, 1:5] nulw_coteda[1:8, 4:-1:1]]
 nw2_coteda[2:2:8, 6:9] = -nw2_coteda[2:2:8, 6:9]
 
 
-function coteda(f, a::T, b::T, tol::T; maxRecursionDepth::Int = 20)::T where {T}
+function coteda(f, a::T, b::T, tol::T; maxRecursionDepth::Int=20)::T where {T}
     if tol < eps(T)
         tol = sqrt(eps(T))
     end
     if b <= a
         return Base.zero(T)
     end
-     h = (b - a) / 2
+    h = (b - a) / 2
     c = (b + a) / 2
     x = @. c + h * p2_modsim
     y = @. f(x)

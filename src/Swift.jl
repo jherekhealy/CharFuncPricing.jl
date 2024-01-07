@@ -16,12 +16,12 @@ end
 asymptoticLogOrder(model::Union{HestonParams{T},SchobelZhuParams{T},SVCJParams{T}}) where {T} = one(T)
 
 
-function findSwiftScaling(cf::CharFunc{MAINT,CR}, τ::T; mGuess=2, tol=sqrt(eps(T)), isInverseTime=false) where {T,CR,MAINT}
+function findSwiftScaling(cf::CharFunc{MAINT,CR}, τ::T; mGuess=2, tol=sqrt(eps(T)), isInverseTime=false, mMax=16) where {T,CR,MAINT}
     #find m, given nu, which is model dependent. Maree uses inverseTime factor, but Leitao, Ortiz Garcia 2018 does not 
     ν = asymptoticLogOrder(model(cf))
     epsilon = tol
     mGuess -= 1
-    while epsilon >= tol && mGuess < 16
+    while epsilon >= tol && mGuess < mMax
         mGuess += 1
         c = 2^mGuess * pi
         epsilon = (c)^(1 - ν) / (2 * pi * ν) * (abs(evaluateCharFunc(cf, -c, τ)) + abs(evaluateCharFunc(cf, c, τ)))

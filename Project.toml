@@ -4,7 +4,6 @@ authors = ["Jherek Healy <jherekhealy@protonmail.com>"]
 version = "0.4.0"
 
 [deps]
-BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 DoubleExponentialFormulas = "eb426421-6452-4132-80ef-4b100a757ac5"
 FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
 FastGaussQuadrature = "442a2c76-b920-505d-bb47-c5924d526838"
@@ -12,27 +11,35 @@ ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Nemo = "2edaba10-b0f1-5616-af89-8c11ac63239a"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
-Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
-StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 TaylorSeries = "6aa5eb33-94cf-58f4-a9d0-e4b2c4fc25ea"
+TestEnv = "1e6cf692-eddd-4d53-88a5-2d735e33781b"
 
 [compat]
+BenchmarkTools = "1"
 DoubleExponentialFormulas = "0.1"
+FFTW = "1"
+FastGaussQuadrature = "1"
+ForwardDiff = "0.10"
 Nemo = "0.27, 0.30"
 Optim = "1"
 Roots = "1, 2"
 SpecialFunctions = "1, 2"
+StatsBase = "0.34"
+TaylorSeries = "0.15"
 julia = "1"
+TestEnv = "1"
 
 [extras]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Nemo = "2edaba10-b0f1-5616-af89-8c11ac63239a"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 
 [targets]
-test = ["Test", "Nemo", "StatsBase","Plots","LaTeXStrings","Printf"]
+test = ["Test", "Nemo", "StatsBase", "Plots", "LaTeXStrings", "Printf"]

@@ -1,30 +1,7 @@
-export priceEuropean, AdaptiveFilonCharFuncPricer
+export priceEuropean, AdaptiveFilonCharFuncPricer, FilonCharFuncPricer
 
-abstract type AbstractTransformation end
-struct ALTransformation <: AbstractTransformation
-end
-transform(::ALTransformation, z::T) where {T} = (1 + z) / (1 - z)
-inverseTransform(::ALTransformation, x::T) where {T} = (x - 1) / (x + 1)
-transformDerivative(::ALTransformation, z::T) where {T} = 2 / (1 - z)^2
-interval(::ALTransformation, ::Type{T}) where {T} = (-one(T),one(T))
-isinfTransform(::ALTransformation, z::T) where {T} =  z == one(T)
-struct LogTransformation{T} <: AbstractTransformation
-    c∞ ::T
-end
-transform(t::LogTransformation, z::T) where {T} = -log(-z)/t.c∞
-inverseTransform(t::LogTransformation, x::T) where {T} = -exp(-x * t.c∞)
-transformDerivative(t::LogTransformation, z::T) where {T} = -one(T)/(z*t.c∞)
-interval(::LogTransformation{T}, ::Type{T}) where {T} = (-one(T),zero(T))
-isinfTransform(::LogTransformation, z::T) where {T} =  z == zero(T)
-struct IdentityTransformation{T} <: AbstractTransformation
-    a ::T
-    b ::T
-end
-transform(t::IdentityTransformation, z::T) where {T} = z
-inverseTransform(t::IdentityTransformation, x::T) where {T} = x
-transformDerivative(t::IdentityTransformation, z::T) where {T} = one(T)
-interval(t::IdentityTransformation{T}, ::Type{T}) where {T} = (t.a, t.b)
-isinfTransform(::IdentityTransformation, z::T) where {T} =  false
+
+
 # struct CotTransformation <: AbstractTransformation
 # end
 # transform(t::CotTransformation, z::T) where {T} = cot(z/2)^2
@@ -179,6 +156,163 @@ function priceEuropean(
     putPrice = callPrice - (forward - strike) * discountDf
     return putPrice
 end
+
+#Filon with truncation: very fast, but truncation rule not always robust
+struct FilonCharFuncPricer{T}
+    τ::T
+    b::T
+    kcos::Array{T,2}
+    vControl::T
+    pi::T
+    function FilonCharFuncPricer(
+        p::CharFunc{MAINT,CR},
+        τ::T;
+        tTol::T = T(1e-8),
+        qTol::T = T(1e-8),
+        b::T = Base.zero(T),
+        maxRecursionDepth::Int=16
+    ) where {MAINT,CR, T}
+        if b == 0
+            b = computeTruncation(p, τ, T(1e-4))
+        end
+        mcos = Dict{T,CR}()
+        iPure = oneim(p)
+        @inline function integrand(x::T)::CR where {T}
+            u = x - 0.5 * iPure
+            phi = evaluateCharFunc(p, u, τ) 
+            denom = 0.25 + x^2
+            phi /= denom
+            return phi
+        end
+        @inline function fcos(x::T)::T where {T}
+            v = integrand(x)
+            mcos[x] = v
+            return real(v)
+        end
+        @inline function fsin(x::T)::T where {T}
+            # v = get!(mcos,x , integrand(x))
+            local v
+            if haskey(mcos, x)
+                v = mcos[x]
+            else
+                v = integrand(x)
+                mcos[x] = v
+            end
+            return imag(v)
+        end
+        #TODO manual stack management.
+        local a = T(0)
+        local ic = integrateSimpsonGG(fcos, a,b, qTol, maxRecursionDepth=maxRecursionDepth)
+        local is = integrateSimpsonGG(fsin, a,b, qTol, maxRecursionDepth=maxRecursionDepth)
+    #    modsim(fcos, a,b, qTol, maxRecursionDepth=16)
+    #    modsim(fsin, a,b, qTol, maxRecursionDepth=16)      
+   
+        #test if truncation is ok
+        local sortedKeys
+        for tailIteration = 1:24
+            sortedKeys = sort!(collect(keys(mcos)))
+            n = length(sortedKeys)
+            an = sortedKeys[n-2]
+            cn = sortedKeys[n-1]
+            bn = sortedKeys[n]
+            fan = mcos[an]
+            fbn = mcos[bn]
+            fcn = mcos[cn]
+            tailEstimate = simpsonAux(an, bn, real(fan), real(fbn), real(fcn))
+            tailEstimateS = simpsonAux(an, bn, imag(fan), imag(fbn), imag(fcn))
+             println(tailIteration," tail ",tailEstimate," ", tailEstimate/(bn-an)," ", ic, " ",ic*qTol," b=",b," ",bn-an)
+            if (abs(tailEstimate) / min(T(1),bn - an) > tTol *  abs(ic)  || abs(tailEstimateS) / min(T(1),bn - an) > tTol *  abs(is)) && tailIteration < 24
+                a = b
+                b *= 2
+                depth = maxRecursionDepth #ceil(Int,maxRecursionDepth/2)
+                ic += integrateSimpsonGG(fcos, a, b, qTol, maxRecursionDepth=depth, integralEstimate=ic)
+                is += integrateSimpsonGG(fsin, a, b, qTol, maxRecursionDepth=depth, integralEstimate=is)
+            else
+                break
+            end
+        end
+        kcos = zeros(T, (3, length(mcos)))
+        for (i, u) in enumerate(sortedKeys)
+            v = mcos[u]
+            kcos[:, i] = [u, real(v),imag(v)]
+        end
+
+        # for (i, u) in enumerate(sortedKeys)
+        #     v = mcos[u]
+        #      kcos[:, i*2-1] = [x, real(v),imag(v)]
+        # end
+        # #add mid points
+        # for i = 1:length(mcos)-1
+        #     a = @view kcos[:, i*2-1]
+        #     b = @view kcos[:, (i+1)*2-1]
+        #     x = (a[1] + b[1]) / 2
+        #     v = integrand(u)
+        #     kcos[:, i*2] = [x, real(v), imag(v)]
+        # end
+
+        return new{T}(τ, b, kcos, getControlVariance(p), const_pi(p))
+    end
+end
+
+function priceEuropean(
+    p::FilonCharFuncPricer{T},
+    isCall::Bool,
+    strike::T,
+    forward::T,
+    τ::T,
+    discountDf::T,
+) where {T}
+    freq = log(strike / forward) #-k
+    sqrtEps = sqrt(eps(T))
+    integral = T(0)
+    diff = T(0)
+    diff1 = T(0)
+    kcos = p.kcos
+    nx = size(kcos)[2] #cols
+    local fp::FilonParams
+    @inbounds for i = 1:2:nx-2
+        if abs(diff - (kcos[1, i+2] - kcos[1, i])) > 1e-8
+            fp = FilonParams(freq, kcos[1, i], kcos[1, i+2])
+            diff = kcos[1, i+2] - kcos[1, i]
+        end
+        integral2 = filonCosSin3Points(
+            fp,
+            kcos[1, i],
+            kcos[1, i+1],
+            kcos[1, i+2],
+            kcos[2, i],
+            kcos[2, i+1],
+            kcos[2, i+2],
+            kcos[3, i],
+            kcos[3, i+1],
+            kcos[3, i+2],
+            freq,
+        )
+        integral += integral2
+    end
+    callPrice = -discountDf * sqrt(strike * forward) / p.pi * integral
+    
+    if p.vControl != 0
+        #use control variate
+        variance = p.vControl * p.τ
+        sqrtVar = sqrt(variance)
+        d1 = log(forward / strike) / sqrtVar + sqrtVar / 2
+        d2 = d1 - sqrtVar
+        nd1 = normcdf(d1)
+        nd2 = normcdf(d2)
+        price = discountDf * (forward * nd1 - strike * nd2)
+        callPrice += price
+    else
+        callPrice += discountDf * forward
+    end
+    if isCall
+        return callPrice
+    end
+    putPrice = callPrice - (forward - strike) * discountDf
+    return putPrice
+end
+
+
 
 
 struct FilonParams{T}

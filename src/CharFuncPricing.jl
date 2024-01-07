@@ -19,6 +19,7 @@ end
 
 
 include("lambertw.jl")
+include("CVCharFunc.jl")
 include("Heston.jl")
 include("SchobelZhu.jl")
 include("SVCJ.jl")
@@ -34,4 +35,5 @@ include("GaussLobatto.jl")
 include("AndersenLake.jl")
 include("JoshiYang.jl")
 include("Swift.jl")
+include("ChebyshevCharFunc.jl")
 end
