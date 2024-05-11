@@ -189,7 +189,7 @@ end
             pricer = CharFuncPricing.AdaptiveFlinnCharFuncPricer(cf, τ, qTol=1e-10)
             for strike in strikes
                 counter += 1
-                price = priceEuropean(pricer, isCall, strike, forward, 1.0)
+                price = priceEuropean(pricer, isCall, strike, forward, τ, 1.0)
                 pricesF3[counter] = price
             end
         end
@@ -201,7 +201,7 @@ end
         for τ in τs, v0 in v0s, θ in θs, κ in κs, σ in σs, ρ in ρs
             params = HestonParams{Float64}(v0, κ, θ, ρ, σ)
             cf = DefaultCharFunc(params)
-            pricer = FlinnCharFuncPricer(cf, τ, tTol=1e-6, qTol=1e-10)
+            pricer = FlinnCharFuncPricer(cf, τ, tTol=1e-8, qTol=1e-10)
             for strike in strikes
                 counter += 1
                 price = priceEuropean(pricer, isCall, strike, forward, τ, 1.0)
@@ -210,21 +210,20 @@ end
         end
     end
 
-    pricesJ = zeros(length(paramset));
+    pricesFI2B = zeros(length(paramset));
     elapsed = @elapsed begin
         local counter = 0
         for τ in τs, v0 in v0s, θ in θs, κ in κs, σ in σs, ρ in ρs
             params = HestonParams{Float64}(v0, κ, θ, ρ, σ)
             cf = DefaultCharFunc(params)
-            pricer = JoshiYangCharFuncPricer(cf, τ, n=64)
+            pricer = FilonCharFuncPricer(cf, τ, tTol=1e-8, qTol=1e-6)
             for strike in strikes
                 counter += 1
                 price = priceEuropean(pricer, isCall, strike, forward, τ, 1.0)
-                pricesJ[counter] = price
+                pricesFI2B[counter] = price
             end
         end
     end
-
 
     allp = [pricesC1, pricesC2, pricesF1, pricesF2, pricesF3, pricesF2B, pricesA1, pricesA2, pricesA0L]
     names = ["Cos","Cos-Adaptive","Flinn-Transf.","Flinn-Transf. (1e-9)", "Flinn-Transf. (1e-10)","Flinn (1e-10)","Andersen-Lake", "Andersen-Lake 1000", "Andersen-Lake GL"]

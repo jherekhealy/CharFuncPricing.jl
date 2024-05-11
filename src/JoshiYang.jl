@@ -35,10 +35,26 @@ struct JoshiYangCharFuncPricer{T,CR}
         return new{T,CR}(τ, w, x, phi, blackVariance, const_pi(cf))
     end
 
+function JoshiYangCharFuncPricer(
+    cf::CharFunc{MAINT,CR},
+    τ::T,
+    x::AbstractArray{T},
+    w::AbstractArray{T}
+) where {MAINT,CR,T}
+    blackVariance = abs(computeControlVariance(cf, τ, JoshiYangControlVariance()))
+    phicv = makeCVCharFunc(cf, blackVariance)
+
+    iPure = oneim(cf)
+    phi = @. (evaluateCharFunc(phicv, x - iPure, τ) / (x * (x - iPure)))
+
+    return new{T,CR}(τ, w, x, phi, blackVariance, const_pi(cf))
+end
+
 end
 Base.broadcastable(p::JoshiYangCharFuncPricer) = Ref(p)
 Base.broadcastable(p::CVCharFunc) = Ref(p)
 Base.broadcastable(p::DefaultCharFunc) = Ref(p)
+
 
 makeCVCharFunc(cf::CharFunc{MAINT,CR}, blackVariance::T) where {MAINT,CR,T} =
     if blackVariance == zero(T)
@@ -50,6 +66,7 @@ makeCVCharFunc(cf::CharFunc{MAINT,CR}, blackVariance::T) where {MAINT,CR,T} =
         CVCharFunc(cf, blackCf)
     end
 
+    
 function computeControlVariance(
     cf::CharFunc,
     τ::T, ::JoshiYangControlVariance
