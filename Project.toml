@@ -4,6 +4,7 @@ authors = ["Jherek Healy <jherekhealy@protonmail.com>"]
 version = "0.4.0"
 
 [deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 DoubleExponentialFormulas = "eb426421-6452-4132-80ef-4b100a757ac5"
 FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
 FastGaussQuadrature = "442a2c76-b920-505d-bb47-c5924d526838"
@@ -28,8 +29,8 @@ Roots = "1, 2"
 SpecialFunctions = "1, 2"
 StatsBase = "0.34"
 TaylorSeries = "0.15"
-julia = "1.10 - 2"
 TestEnv = "1"
+julia = "1.10 - 2"
 
 [extras]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"

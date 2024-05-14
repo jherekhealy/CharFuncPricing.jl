@@ -9,6 +9,58 @@ struct CosCharFuncPricer{T}
     pi::T
 end
 
+#Gero Junike
+using TaylorSeries
+using ForwardDiff
+using FastGaussQuadrature
+function makeCosCharFuncPricer(
+    cf::CharFunc{MAINT,CR},
+    τ::T;
+    s=20, #number of derivatives to determine the number of terms
+    relStrike=1.0,
+    tol::T=1e-6
+) where {T,CR,MAINT}
+    t = Taylor1(Float64, 4)
+    cft = evaluateCharFunc(cf, t, τ)
+    phi0 = cft.coeffs[1]
+    phi1 = cft.coeffs[2]
+    mu = real(phi1 * -1im)
+    phi2 = cft.coeffs[3] * 2
+    phi3 = cft.coeffs[4] * 2 * 3
+    phi4 = cft.coeffs[5] * 2 * 3 * 4
+    phi4 = phi4 - 4im * mu * phi3 - 6 * mu^2 * phi2 + 4im * mu^3 * phi1 + mu^4 * phi0 #corresponds to (f(x)*exp(-i*x*mu))''''
+    # phi4 = evaluateFourthDerivative(cf, τ, zero(T)); mu=0.0
+    mu_n = abs(phi4) #4-th moment of log-returns. 
+    l = (2 * relStrike * mu_n / tol)^(1 / 4) #Truncation range, Junike (2024, Eq. (3.10)).
+    integrand = function (u)
+        1 / (2 * pi) * abs(u)^(s + 1) * abs(evaluateCharFunc(cf, u, τ) * exp(-1im * u * mu))
+    end
+    if s <= 0
+        c0 = cinf(model(cf), τ)
+        lWinv = Float64(c0 / (tol^(3/2) * l))
+        lW = lambertW(lWinv)
+        m = ceil(Int, lW / Float64(c0) / Base.pi * Float64(2l))
+        m = max(64, m)
+    else
+        # deResult = quadde(integrand, -Inf, Inf) #slow, gausshermite on 32 point does not work 
+        al = ALTransformation()
+        integrandT = function (z)
+            integrand(transform(al, z)) * transformDerivative(al, z)
+        end
+        #println(integrandT(inverseTransform(al,1.0)))
+        x, w = gausslegendre(128) #note: quadde on integrand does not work!
+        f = u -> integrandT(u)
+        boundDeriv = 2 * dot(w, f.(x))
+        # z = @. (1:1024) * pi / 2l #if we want to reuse phi of cos method, unclear what N should be (circular problem), here 1024 is not enough
+        # phiz = map(z -> evaluateCharFunc(cf, z, τ), z)
+        # boundDeriv = 2*(z[2]-z[1])*sum(@.(abs(phiz .* exp(-1im*mu*z))*abs(z)^(s + 1)))/(2*pi)
+        println("mu ",mu,"phi4 ",phi4, " mu_n ",mu_n, " l ",l," res ",boundDeriv)
+        tmp = 2^(s + 5 / 2) * boundDeriv * l^(s + 2) * 12 * relStrike
+        m = ceil(Int, (tmp / (s * pi^(s + 1) * tol))^(1 / s)) #Number of terms, Junike (2024, Sec. 6.1) 
+    end
+    return makeCosCharFuncPricer(cf, τ, m, -l, l)
+end
+
 
 #using cumulants rule
 function makeCosCharFuncPricer(

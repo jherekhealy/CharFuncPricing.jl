@@ -1,6 +1,23 @@
 using CharFuncPricing, Test, Printf
 using StatsBase
 
+@testset "Junike" begin
+τ=0.7
+S0=100.0
+K=90.0
+r=0.1
+df = exp(-r*τ)
+forward = S0/df
+params = HestonParams(0.0654, 0.6067, 0.0707, -0.7571, 0.2928)
+cf = DefaultCharFunc(params)
+pricer = makeCosCharFuncPricer(cf, τ, relStrike=K/forward, tol=1e-6)
+pricer2 = ALCharFuncPricer(cf)
+price = priceEuropean(pricer, false, K, forward, τ, df)
+price2 = priceEuropean(pricer2, false, K, forward, τ, df)
+@test isapprox( 2.773954, price,1e-6)
+@test isapprox( 2.773954, price2,1e-6)
+end
+
 @testset "HestonLong" begin
 τ=10.0
 forward= 10000.0
@@ -10,7 +27,7 @@ cf = DefaultCharFunc(params)
 quadratureGL = ModlobQuadrature(1e-13)
 m, stol = CharFuncPricing.findSwiftScaling(cf,τ)
 pricers = [ALCharFuncPricer(cf, quadratureGL), makeCosCharFuncPricer(cf, τ, 200, 8),
- makeCosCharFuncPricer(cf, τ, 8, tol=1e-8), FlinnCharFuncPricer(cf, τ, tTol = 1e-10, qTol=1e-10),
+ makeCosCharFuncPricer(cf, τ, tol=1e-4), FlinnCharFuncPricer(cf, τ, tTol = 1e-10, qTol=1e-10),
  FlinnCharFuncPricer(cf, τ, tTol = 1e-40, qTol=1e-10), AdaptiveFlinnCharFuncPricer(cf, τ, qTol=1e-8), ALCharFuncPricer(cf, n=200),
  JoshiYangCharFuncPricer(cf,τ,n=16),CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, m, 4)]
 pricerNames = ["Reference", "Cos (M=200)", "Cos-Adaptive", "Flinn-Truncated (1e-8)", "Flinn-Truncated (1e-40)", "Flinn-Transformed", "Andersen-Lake (n=200)","Joshi-Yang (n=64)","Swift"]
@@ -43,7 +60,7 @@ params = HestonParams(0.0001, 0.1, 0.25, 0.95, 3.0)
 strike = 100.0001
 cf = DefaultCharFunc(params)
 m, stol = CharFuncPricing.findSwiftScaling(cf,τ)
-pricers = [ALCharFuncPricer(cf, quadratureGL),  makeCosCharFuncPricer(cf, τ, 8),
+pricers = [ALCharFuncPricer(cf, quadratureGL),  makeCosCharFuncPricer(cf, τ, tol=1e-4),
 makeCosCharFuncPricer(cf, τ, 200, 8), makeCosCharFuncPricer(cf, τ, 1000, 8),
  FlinnCharFuncPricer(cf, τ, tTol = 1e-10, qTol=1e-10),ALCharFuncPricer(cf, n=200),
  JoshiYangCharFuncPricer(cf,τ, n=64),
@@ -76,7 +93,7 @@ prices = map(x -> priceEuropean(pricers[5], isCall, x, forward, τ, 1.0), strike
 params = HestonParams(0.0001, 0.01, 1.0, -0.95, 3.0)
 cf = DefaultCharFunc(params)
 m, stol = CharFuncPricing.findSwiftScaling(cf,τ)
-pricers=[ALCharFuncPricer(cf, quadratureGL), makeCosCharFuncPricer(cf, τ, 8),
+pricers=[ALCharFuncPricer(cf, quadratureGL), makeCosCharFuncPricer(cf, τ, tol=1e-4),
  FlinnCharFuncPricer(cf, τ, tTol = 1e-10, qTol=1e-10), ALCharFuncPricer(cf, n=200), CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, m, 4)]
  pricerNames=["Reference", "Cos-Adaptive 8", "Flinn Trunc 1e-10", "AndersenLake","Swift"]
 isCall = false
@@ -104,7 +121,7 @@ prices = map(x -> priceEuropean(pricers[4], isCall, x, forward, τ, 1.0), strike
 strike=101.0
 params=HestonParams{Float64}(0.0001, 0.01, 0.0001, 0.95, 3.0)
 cf = DefaultCharFunc(params)
-pricers = [ALCharFuncPricer(cf, quadratureGL), makeCosCharFuncPricer(cf, τ, 200, 8), makeCosCharFuncPricer(cf, τ, 8, tol=1e-8),
+pricers = [ALCharFuncPricer(cf, quadratureGL), makeCosCharFuncPricer(cf, τ, 200, 8), makeCosCharFuncPricer(cf, τ, tol=1e-4),
 FlinnCharFuncPricer(cf, τ, tTol = 1e-10, qTol=1e-10), FlinnCharFuncPricer(cf, τ, tTol = 1e-40, qTol=1e-10),
  AdaptiveFlinnCharFuncPricer(cf, τ, qTol=1e-8), ALCharFuncPricer(cf, n=200)]
 pricerNames = ["Reference", "Cos (M=200)", "Cos-Adaptive", "Flinn-Truncated (1e-8)", "Flinn-Truncated (1e-40)", "Flinn-Transformed", "Andersen-Lake (n=200)"]
