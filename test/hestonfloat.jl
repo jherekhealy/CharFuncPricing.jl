@@ -14,8 +14,8 @@ pricer = makeCosCharFuncPricer(cf, τ, relStrike=K/forward, tol=1e-6)
 pricer2 = ALCharFuncPricer(cf)
 price = priceEuropean(pricer, false, K, forward, τ, df)
 price2 = priceEuropean(pricer2, false, K, forward, τ, df)
-@test isapprox( 2.773954, price,1e-6)
-@test isapprox( 2.773954, price2,1e-6)
+@test isapprox( 2.773954, price,atol=1e-6)
+@test isapprox( 2.773954, price2,atol=1e-6)
 end
 
 @testset "HestonLong" begin
