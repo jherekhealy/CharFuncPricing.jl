@@ -495,7 +495,7 @@ function computeTruncation(cf::CharFunc{HestonParams{T}}, τ::T, tol::T) where {
     p = model(cf)
     c_inf = cinf(p, τ)
     u = T(lambertW(Float64(c_inf / tol))) / c_inf
-    if p.v0 * τ < 0.1
+    if p.v0 * τ < 0.1 
          ushort = sqrt(T(lambertW(Float64(p.v0 * τ / (tol^2)))) / (p.v0 * τ))
          u = ushort
     end

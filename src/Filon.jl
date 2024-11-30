@@ -220,7 +220,7 @@ struct FilonCharFuncPricer{T}
             fcn = mcos[cn]
             tailEstimate = simpsonAux(an, bn, real(fan), real(fbn), real(fcn))
             tailEstimateS = simpsonAux(an, bn, imag(fan), imag(fbn), imag(fcn))
-             println(tailIteration," tail ",tailEstimate," ", tailEstimate/(bn-an)," ", ic, " ",ic*qTol," b=",b," ",bn-an)
+            #  println(tailIteration," tail ",tailEstimate," ", tailEstimate/(bn-an)," ", ic, " ",ic*qTol," b=",b," ",bn-an)
             if (abs(tailEstimate) / min(T(1),bn - an) > tTol *  abs(ic)  || abs(tailEstimateS) / min(T(1),bn - an) > tTol *  abs(is)) && tailIteration < 24
                 a = b
                 b *= 2

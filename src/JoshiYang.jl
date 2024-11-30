@@ -72,7 +72,7 @@ function computeControlVariance(
     τ::T, ::JoshiYangControlVariance
 )::T where {T}
     phid0 = imag(derivative(u -> evaluateCharFunc(cf, u - 1im, τ), eps(T))) #ForwardDiff at zero(T)wrong due to ifelse in charfunc eval
-    # println("phi'(-i)=", phid0)
+    #println("phi'(-i)=", phid0)
     return 2phid0 / τ
 end
 
@@ -80,7 +80,7 @@ function computeControlVariance(
     cf::DefaultCharFunc{HestonParams{TT}},
     τ::T, ::JoshiYangControlVariance
 )::T where {T,TT}
-    a, b = evaluateCharFuncAndDerivative(cf, -1im, τ)
+    a, b = evaluateCharFuncAndDerivative(cf, eps(T)-1im, τ)
     phid0 = imag(b)
     # println("phi'(-i)=", phid0)
     variance = 2phid0 / τ

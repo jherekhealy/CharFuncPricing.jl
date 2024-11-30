@@ -115,6 +115,48 @@ function integrate(q::DEQuadrature{T}, integrand)::T where {T}
 end
 
 
+struct TrapezoidalRule{T} <: ALQuadrature{T}
+    N::Int
+end
+
+struct TrapezoidalRuleV{T} <: ALQuadrature{T}
+    N::Int
+    x::Vector{T}
+    values::Vector{T}
+end
+
+function integrate(q::TrapezoidalRule{T}, integrand)::T where {T}
+    #integrand with variable transform from -1 to 1
+    @inline function integrand1(x::T)::T
+        if x == 1
+            return Base.zero(T)
+        end
+        u = (1 + x) / (1 - x)
+        return integrand(u) * 2 / (1 - x)^2
+    end
+    h = 2/q.N
+    x = range(-1.0,stop=1.0,length=q.N)
+    values = integrand1.(x)
+    I = sum(values[2:end-1])*h + (values[1]+values[end])*h/2
+    return I
+end
+
+function integrate(q::TrapezoidalRuleV{T}, integrand)::T where {T}
+    #integrand with variable transform from -1 to 1
+    @inline function integrand1(x::T)::T
+        if x == 1
+            return Base.zero(T)
+        end
+        u = (1 + x) / (1 - x)
+        return integrand(u) * 2 / (1 - x)^2
+    end
+    h = 2/q.N
+    q.x .= collect(range(-1.0,stop=1.0,length=q.N))
+    q.values .= integrand1.(q.x)
+    I = sum(q.values[2:end-1])*h + (q.values[1]+q.values[end])*h/2
+    return I
+end
+
 
 #Andersen and Lake "Robust High-Precision Option Pricing by Fourier Transforms: Contour Deformations and Double-Exponential Quadrature"
 #Supports Heston & ShobelZhu

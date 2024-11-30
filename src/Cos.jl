@@ -18,7 +18,8 @@ function makeCosCharFuncPricer(
     τ::T;
     s=20, #number of derivatives to determine the number of terms
     relStrike=1.0,
-    tol::T=1e-6
+    tol::T=1e-6,
+    nPoints=32
 ) where {T,CR,MAINT}
     t = Taylor1(Float64, 4)
     cft = evaluateCharFunc(cf, t, τ)
@@ -48,13 +49,13 @@ function makeCosCharFuncPricer(
             integrand(transform(al, z)) * transformDerivative(al, z)
         end
         #println(integrandT(inverseTransform(al,1.0)))
-        x, w = gausslegendre(128) #note: quadde on integrand does not work!
+        x, w = gausslegendre(nPoints) #note: quadde on integrand does not work!
         f = u -> integrandT(u)
         boundDeriv = 2 * dot(w, f.(x))
         # z = @. (1:1024) * pi / 2l #if we want to reuse phi of cos method, unclear what N should be (circular problem), here 1024 is not enough
         # phiz = map(z -> evaluateCharFunc(cf, z, τ), z)
         # boundDeriv = 2*(z[2]-z[1])*sum(@.(abs(phiz .* exp(-1im*mu*z))*abs(z)^(s + 1)))/(2*pi)
-        println("mu ",mu,"phi4 ",phi4, " mu_n ",mu_n, " l ",l," res ",boundDeriv)
+        #println("mu ",mu,"phi4 ",phi4, " mu_n ",mu_n, " l ",l," res ",boundDeriv)
         tmp = 2^(s + 5 / 2) * boundDeriv * l^(s + 2) * 12 * relStrike
         m = ceil(Int, (tmp / (s * pi^(s + 1) * tol))^(1 / s)) #Number of terms, Junike (2024, Sec. 6.1) 
     end

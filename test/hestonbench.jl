@@ -141,7 +141,7 @@ end
         for τ in τs, v0 in v0s, θ in θs, κ in κs, σ in σs, ρ in ρs
         params = HestonParams(v0, κ, θ, ρ, σ)
         cf = DefaultCharFunc(params)
-        refPricer = makeCosCharFuncPricer(cf, τ, 8)
+        refPricer = makeCosCharFuncPricer(cf, τ, tol=1e-6)
         for strike in strikes
             price = priceEuropean(refPricer, isCall, strike, forward, τ, 1.0)
             push!(pricesC2, price)
