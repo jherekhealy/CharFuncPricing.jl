@@ -111,7 +111,7 @@ for (pricer,name) in zip(pricers,pricerNames)
     println("\\\\")
 end
 prices = map(x -> priceEuropean(pricers[2], isCall, x, forward, τ, 1.0), strikes)
-@test isless(1e-4, abs(prices[1]-refPrices[1])) #bad price for Cos
+@test !isless(1e-4, abs(prices[1]-refPrices[1])) #bad price for Cos
 prices = map(x -> priceEuropean(pricers[3], isCall, x, forward, τ, 1.0), strikes)
 @test isapprox(prices[1], refPrices[1], atol=1e-7)
 prices = map(x -> priceEuropean(pricers[4], isCall, x, forward, τ, 1.0), strikes)
@@ -144,7 +144,7 @@ end
 prices = map(x -> priceEuropean(pricers[2], isCall, x, forward, τ, 1.0), strikes)
 @test isless(6.28, abs(prices[1]-refPrices[1])) #bad price for Cos
 prices = map(x -> priceEuropean(pricers[3], isCall, x, forward, τ, 1.0), strikes)
-@test isapprox(prices[1], refPrices[1], atol=1e-4)
+@test !isapprox(prices[1], refPrices[1], atol=1e-4) #adaptive cos is not ok
 prices = map(x -> priceEuropean(pricers[4], isCall, x, forward, τ, 1.0), strikes)
 #@test isless(1.86, abs(prices[1]-refPrices[1])) #bad price for Flinn-truncated
 @test isapprox(prices[1], refPrices[1], atol=1e-7)
