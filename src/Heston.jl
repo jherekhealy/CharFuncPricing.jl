@@ -1,6 +1,7 @@
 export HestonParams, evaluateCharFunc, evaluateLogCharFunc, computeCumulants
 export BlackParams, evaluateCharFuncAndDerivative
 export HestonCVCharFunc, cinf
+import Base.length, Base.iterate
 
 struct HestonParams{T}
     v0::T
@@ -9,21 +10,40 @@ struct HestonParams{T}
     ρ::T
     σ::T
 end
+
+Base.length(::HestonParams) = 5
+Base.iterate(p::HestonParams, state=1) = if state == 1
+    (p.v0,state+1)
+elseif state == 2
+    (p.κ,state+1)
+elseif state == 3
+    (p.θ,state+1)
+elseif state == 4
+    (p.ρ,state+1)
+elseif state == 5
+    (p.σ,state+1)
+else
+    nothing
+end
+ 
 DefaultCharFunc(params::HestonParams{Float64}) =
     DefaultCharFunc{HestonParams{Float64},Complex{Float64}}(params)
 
 DefaultCharFunc(params::HestonParams{T}) where {T} =
     DefaultCharFunc{HestonParams{T},Complex{T}}(params)
 
-HestonCVCharFunc(heston::CharFunc{HestonParams{T},CR}, τ, kind::CVKind=InitialControlVariance()) where {T,CR} =
+function HestonCVCharFunc(heston::CharFunc{HestonParams{T},CR}, τ, kind::CVKind=InitialControlVariance()) where {T,CR} 
     CVCharFunc{HestonParams{T},BlackParams{T},CR}(
         heston,
         DefaultCharFunc{BlackParams{T},CR}(
             BlackParams{T}(computeControlVariance(heston, τ, kind))
         )
     )
+end
 
-makeCVCharFunc(heston::CharFunc{HestonParams{T},CR}, τ, kind::CVKind) where {T,CR} = HestonCVCharFunc(heston, kind)
+function makeCVCharFunc(heston::CharFunc{HestonParams{T},CR}, τ, kind::CVKind) where {T,CR}  
+    HestonCVCharFunc(heston, τ, kind)
+end
 
 
 @inline function computeControlVariance(
@@ -37,8 +57,7 @@ end
 
 @inline function computeControlVariance(
     cf::CharFunc{HestonParams{TT}},
-    τ::T, kind::InitialControlVariance
-)::T where {T,TT}
+    τ::T, kind::InitialControlVariance)::T where {TT,T}
     p = model(cf)
     p.v0
 end

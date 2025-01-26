@@ -19,7 +19,8 @@ function makeCosCharFuncPricer(
     s=20, #number of derivatives to determine the number of terms
     relStrike=1.0,
     tol::T=1e-6,
-    nPoints=32
+    nPoints=32,
+    maxM = 32*1024
 ) where {T,CR,MAINT}
     t = Taylor1(Float64, 4)
     cft = evaluateCharFunc(cf, t, τ)
@@ -41,7 +42,7 @@ function makeCosCharFuncPricer(
         lWinv = Float64(c0 / (tol^(3/2) * l))
         lW = lambertW(lWinv)
         m = ceil(Int, lW / Float64(c0) / Base.pi * Float64(2l))
-        m = max(64, m)
+        m =  max(64, m)
     else
         # deResult = quadde(integrand, -Inf, Inf) #slow, gausshermite on 32 point does not work 
         al = ALTransformation()
@@ -59,7 +60,7 @@ function makeCosCharFuncPricer(
         tmp = 2^(s + 5 / 2) * boundDeriv * l^(s + 2) * 12 * relStrike
         m = ceil(Int, (tmp / (s * pi^(s + 1) * tol))^(1 / s)) #Number of terms, Junike (2024, Sec. 6.1) 
     end
-    return makeCosCharFuncPricer(cf, τ, m, -l, l)
+    return makeCosCharFuncPricer(cf, τ, min(maxM, m), -l, l)
 end
 
 

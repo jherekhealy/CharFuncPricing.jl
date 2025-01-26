@@ -102,7 +102,7 @@ function priceEuropean(
     strike::T,
     forward::T,
     τ::T,
-    discountDf::T,
+    discountDf::T
 ) where {T}
     if τ != p.τ
         throw(DomainError(τ, string("maturity is different from pricer maturity ", p.τ)))
@@ -110,10 +110,7 @@ function priceEuropean(
     #intervals are not equals anymore! => cubic hermite spline f, fp.
     #for now, double the points, note: need to transform f and f' back as well.
     freq = log(strike / forward) #-k
-    sqrtEps = sqrt(eps(T))
     integral = zero(T)
-    diff = zero(T)
-    diff1 = zero(T)
     kcos = p.kcos
     nx = size(kcos)[2] #cols
 
@@ -174,6 +171,7 @@ struct FlinnCharFuncPricer{T}
         tTol::T = T(1e-8),
         qTol::T = T(1e-8),
         b::T = Base.zero(T),
+        maxTailIterations=8
     ) where {T}
         if b == 0
             b = computeTruncation(p, τ, T(1e-4))
@@ -213,7 +211,7 @@ struct FlinnCharFuncPricer{T}
         local is = integrateQuinticHermite(fsin, a, b, qTol, 16)
         #test if truncation is ok
         local sortedKeys
-        for tailIteration = 1:24
+        for tailIteration = 1:maxTailIterations
             sortedKeys = sort!(collect(keys(mcos)))
             n = length(sortedKeys)
             an = sortedKeys[n-2]
