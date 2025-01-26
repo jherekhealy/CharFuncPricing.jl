@@ -20,7 +20,7 @@ function makeCosCharFuncPricer(
     relStrike=1.0,
     tol::T=1e-6,
     nPoints=32,
-    maxM = 32*1024
+    maxM = 64*1024
 ) where {T,CR,MAINT}
     t = Taylor1(Float64, 4)
     cft = evaluateCharFunc(cf, t, τ)

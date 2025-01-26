@@ -171,7 +171,7 @@ struct FlinnCharFuncPricer{T}
         tTol::T = T(1e-8),
         qTol::T = T(1e-8),
         b::T = Base.zero(T),
-        maxTailIterations=8
+        maxTailIterations=16
     ) where {T}
         if b == 0
             b = computeTruncation(p, τ, T(1e-4))
