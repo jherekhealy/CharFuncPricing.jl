@@ -21,6 +21,7 @@ end
 include("lambertw.jl")
 include("CVCharFunc.jl")
 include("Heston.jl")
+include("DoubleHeston.jl")
 include("SchobelZhu.jl")
 include("SVCJ.jl")
 include("CGMY.jl")

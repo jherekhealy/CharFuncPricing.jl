@@ -165,8 +165,17 @@ struct ALCharFuncPricer{T}
     quadrature::ALQuadrature{T}
 end
 
-function ALCharFuncPricer(cf:: Union{CharFunc{HestonParams{T}, CR},CharFunc{SchobelZhuParams{T},CR}}; n::Int=200) where {CR,T}
+function ALCharFuncPricer(cf:: Union{CharFunc{HestonParams{T}, CR},CharFunc{DoubleHestonParams{T}, CR},CharFunc{SchobelZhuParams{T},CR}}; n::Int=200) where {CR,T}
     return ALCharFuncPricer(cf, TanhSinhQuadrature(n,eps(T)))
+end
+
+
+function computeR(m::Union{HestonParams{T}, SchobelZhuParams{T}}, ω::T, τ::T) where {T}
+    m.ρ - m.σ * ω / (m.v0 + m.κ * m.θ * τ)
+end
+
+function computeR(m::DoubleHestonParams{T}, ω::T, τ::T) where {T}
+    computeR(m.heston1, ω, τ) + computeR(m.heston2, ω, τ) #FIXME 
 end
 
 
@@ -181,7 +190,7 @@ function priceEuropean(
     cf = p.cf
     m = model(cf)
     ω = log(forward / strike)
-    r = m.ρ - m.σ * ω / (m.v0 + m.κ * m.θ * τ)
+    r = computeR(m, ω, τ)
     piHigh = T(Base.pi)# pi(cf)
     angle = (r * ω < 0) ? piHigh / 12 * sign(ω) : Base.zero(T)
     α = optimalAlpha(p.cf, τ, ω)

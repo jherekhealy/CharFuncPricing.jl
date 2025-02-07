@@ -503,6 +503,20 @@ function computeTruncation(cf::CharFunc{HestonParams{T}}, τ::T, tol::T) where {
     return u
 end
 
+function computeTruncation(cf::CharFunc{DoubleHestonParams{T}}, τ::T, tol::T) where {T}
+    p = model(cf)
+    c_inf = cinf(p, τ)
+    u = T(lambertW(Float64(c_inf / tol))) / c_inf
+    totalVariance = (p.heston1.v0 * τ + p.heston2.v0*τ)
+    if totalVariance < 0.1 
+         ushort = sqrt(T(lambertW(Float64(totalVariance / (tol^2)))) / totalVariance)
+         u = ushort
+    end
+    #u = max(u,10.0)
+    #end
+    # println("umax ",u)
+    return u
+end
 @inline tuplejoin(x) = x
 @inline tuplejoin(x, y) = (x..., y...)
 @inline tuplejoin(x, y, z...) = (x..., tuplejoin(y, z...)...)
