@@ -29,3 +29,20 @@ using CharFuncPricing
     @test isapprox(refPrices100,pricesCos, atol=1e-2)
 
 end
+
+@testset "HestonTSHeston" begin
+    hParams = HestonParams(0.04, 1.0, 0.05, -0.5, 1.0)
+     τ = 1.0
+     tsParams = HestonTSParams(0.04, [1.0], [0.05], [-0.5], [1.0], [0.0])
+    cf = DefaultCharFunc(tsParams)
+  pricer = JoshiYangCharFuncPricer(cf, τ)
+    priceTS1 =  priceEuropean(pricer, false, 0.9, 1.0, τ, 1.0)
+    priceH = priceEuropean(JoshiYangCharFuncPricer(DefaultCharFunc(hParams), τ), false, 0.9, 1.0, τ, 1.0)
+    @test isapprox(priceH, priceTS1, atol=1e-8)
+    tsParams = HestonTSParams(0.04, [1.0,0.5], [0.05,0.06], [-0.5,-0.6], [1.0,0.9], [0.0,2.0])
+    cf = DefaultCharFunc(tsParams)
+    pricer = JoshiYangCharFuncPricer(cf, τ)
+    priceTS2 =  priceEuropean(pricer, false, 0.9, 1.0, τ, 1.0)
+    @test isapprox(priceH, priceTS2, atol=1e-8)
+    
+end
