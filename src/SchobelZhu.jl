@@ -16,6 +16,14 @@ cinf(params::SchobelZhuParams{T}, τ::T) where {T} = (params.v0^2/params.σ+τ*p
     return exp(evaluateLogCharFunc(p, z, τ))
 end
 
+@inline function computeControlVariance(
+	cf::CharFunc{SchobelZhuParams{T1}},
+	τ, kind::InitialControlVariance) where {T1}
+	p = model(cf)
+	p.v0^2
+end
+
+
 evaluateLogCharFunc(p::CharFunc{SchobelZhuParams{T},CR}, z::CT, τ::T) where {T,CR,CT} = evaluateLogCharFuncZhu(p, z, τ)
 
 function evaluateLogCharFuncLK(cf::CharFunc{SchobelZhuParams{T},CR}, z::CT, τ::T)::CR where {T,CR,CT}
