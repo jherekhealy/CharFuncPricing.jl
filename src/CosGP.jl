@@ -1,4 +1,4 @@
-#Cos pricing based on integrating on the -i line. Calls can be priced, and Puts must use put-call parity.
+#Cos pricing based on gil pelaez formula. A curiosity.
 struct CosGPCharFuncPricer{T}
     τ::T
     a::T

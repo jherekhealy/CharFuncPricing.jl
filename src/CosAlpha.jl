@@ -82,7 +82,7 @@ function priceEuropean(
     else 
         eαp1 = exp(-α*a)
         eα = exp(-(α+1)*a)
-        println("eα ",eα, " ep1 ", eαp1, " eax ",exp((α+1)*x) )
+        #println("eα ",eα, " ep1 ", eαp1, " eax ",exp((α+1)*x) )
         # uk0 = exp(a)-1-a
         # uk0 =  (exp(b) -1)-b
         χ = (-(α+1)*eα + (α+1)) / ((α+1)^2)
