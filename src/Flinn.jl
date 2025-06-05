@@ -169,7 +169,7 @@ struct FlinnCharFuncPricer{T}
         p::CharFunc,
         τ::T;
         tTol::T = T(1e-8),
-        qTol::T = T(1e-8),
+        qTol::T = T(1e-10),
         b::T = Base.zero(T),
         maxTailIterations=16
     ) where {T}
@@ -222,8 +222,8 @@ struct FlinnCharFuncPricer{T}
             fcn = mcos[cn]
             tailEstimate = quinticHermiteAux(an, bn, fan[1], fbn[1], fcn[1], fan[3], fbn[3], fcn[3])
             tailEstimateS = quinticHermiteAux(an, bn, fan[2], fbn[2], fcn[2], fan[4], fbn[4], fcn[4])
-            # println(tailIteration," tail ",tailEstimate," ", tailEstimate/(bn-an)," ", ic, " ",ic*qTol," b=",b," ",bn-an)
-            if (abs(tailEstimate) / min(T(1),bn - an) > tTol *  abs(ic)  || abs(tailEstimateS) / min(T(1),bn - an) > tTol *  abs(is)) && tailIteration < 24
+             #println(tailIteration," tail ",tailEstimate," ", tailEstimate/(bn-an)," ", ic, " ",ic*qTol," b=",b," ",bn-an," is=",is)
+            if (abs(tailEstimate) / min(T(1),bn - an) > tTol *      max(T(1), abs(ic))  || abs(tailEstimateS) / min(T(1),bn - an) > tTol *  max(T(1),abs(is))) && tailIteration < 24
                 a = b
                 b *= 2
                 ic += integrateQuinticHermite(fcos, a, b, qTol, 16, integralEstimate=ic)

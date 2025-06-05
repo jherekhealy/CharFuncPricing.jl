@@ -513,9 +513,9 @@ end
     println("Ref ", measuredTime)
 
     measuredTime = @elapsed begin
-        pricer = makeCosCharFuncPricer(cf, τ, 200,8)
+        pricer = CharFuncPricing.makeCosAlphaCharFuncPricer(cf, τ, 200,8,0.0)
         for (i, strike) in enumerate(0.4:0.012:1.6)
-        price = priceEuropean(pricer, false, strike, spot, τ, df)
+        price = priceEuropean(pricer, true, strike, spot, τ, df)-spot+strike
         prices[i] = price
     end
     end

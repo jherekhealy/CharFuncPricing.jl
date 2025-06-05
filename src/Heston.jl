@@ -63,6 +63,18 @@ end
 end
 
 
+function computeControlVariance(
+	cf::DefaultCharFunc{HestonParams{TT}},
+	τ::T, ::JoshiYangControlVariance,
+)::T where {T, TT}
+	a, b = evaluateCharFuncAndDerivative(cf, eps(T) - 1im, τ)
+	phid0 = imag(b)
+	# println("phi'(-i)=", phid0)
+	variance = 2phid0 / τ
+	return variance #return min(variance, 10000*one(T))
+end
+
+
 #cinf(params::HestonCVParams{T}, τ::T) where {T} = cinf(params.heston, τ)
 
 cinf(params::HestonParams{T}, τ::T) where {T} =

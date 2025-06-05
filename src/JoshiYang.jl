@@ -4,7 +4,6 @@
 using FastGaussQuadrature
 import ForwardDiff: derivative
 export JoshiYangCharFuncPricer
-struct JoshiYangControlVariance <: CVKind end
 
 struct JoshiYangCharFuncPricer{T,CR}
     τ::T
@@ -16,7 +15,9 @@ struct JoshiYangCharFuncPricer{T,CR}
     function JoshiYangCharFuncPricer(
         cf::CharFunc{MAINT,CR},
         τ::T;
-        n=64
+        n=64,
+        useCinf::Bool = false
+
     ) where {MAINT,CR,T}
         blackVariance = abs(computeControlVariance(cf, τ, JoshiYangControlVariance()))
         phicv = makeCVCharFunc(cf, blackVariance)
@@ -30,7 +31,16 @@ struct JoshiYangCharFuncPricer{T,CR}
                 w[i] = 0.0
             end ##else overflow
         end
-        phi = @. (evaluateCharFunc(phicv, x - iPure, τ) / (x * (x - iPure)))
+        phi =if useCinf
+            p = model(cf)
+            cinfValue = cinf(p,τ)  #asympt in exp(-x*cinf) => z =x*cinf, we integrate on z, dx= dz/cinf
+            if (p.v0 * τ) < 0.1
+                cinfValue = min(cinfValue, sqrt(p.v0*τ/2))
+            end
+            @. (evaluateCharFunc(phicv, x/cinfValue - iPure, τ) /cinfValue/ (x/cinfValue * (x/cinfValue - iPure)))
+        else
+            @. (evaluateCharFunc(phicv, x - iPure, τ) / (x * (x - iPure)))
+        end
 
         return new{T,CR}(τ, w, x, phi, blackVariance, const_pi(cf))
     end
@@ -67,25 +77,6 @@ makeCVCharFunc(cf::CharFunc{MAINT,CR}, blackVariance::T) where {MAINT,CR,T} =
     end
 
     
-function computeControlVariance(
-    cf::CharFunc,
-    τ::T, ::JoshiYangControlVariance
-)::T where {T}
-    phid0 = imag(derivative(u -> evaluateCharFunc(cf, u - 1im, τ), eps(T))) #ForwardDiff at zero(T)wrong due to ifelse in charfunc eval
-    #println("phi'(-i)=", phid0)
-    return 2phid0 / τ
-end
-
-function computeControlVariance(
-    cf::DefaultCharFunc{HestonParams{TT}},
-    τ::T, ::JoshiYangControlVariance
-)::T where {T,TT}
-    a, b = evaluateCharFuncAndDerivative(cf, eps(T)-1im, τ)
-    phid0 = imag(b)
-    # println("phi'(-i)=", phid0)
-    variance = 2phid0 / τ
-    return variance #return min(variance, 10000*one(T))
-end
 
 function priceEuropean(
     p::JoshiYangCharFuncPricer{T,CR},
@@ -107,15 +98,10 @@ function priceEuropean(
     callPrice = -discountDf / p.pi * integral * forward
     if p.vControl != 0
         #use control variate
-        variance = p.vControl * p.τ
-        sqrtVar = sqrt(variance)
-        d1 = log(forward / strike) / sqrtVar + sqrtVar / 2
-        d2 = d1 - sqrtVar
-        nd1 = normcdf(d1)
-        nd2 = normcdf(d2)
-        price = discountDf * (forward * nd1 - strike * nd2)
+        blackPrice = blackScholes(true, strike, forward,  p.vControl * p.τ, discountDf)
+       
         #println("bs ",price," ",callPrice)
-        callPrice += price
+        callPrice += blackPrice
     else
         # println("integ ",callPrice)
         callPrice += discountDf * forward / 2

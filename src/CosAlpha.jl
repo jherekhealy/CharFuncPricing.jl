@@ -58,7 +58,11 @@ function priceEuropean(
         # uk0 = exp(a)-1-a
         # uk0 =  (exp(b) -1)-b
         χ = (-(α+1)*eα + (α+1)) / ((α+1)^2)
-        χp1 = (-(α)*eαp1 + (α)) / ((α)^2)
+        χp1 = if α == zero(T)
+            b   #(1-alpha*b) * -(alpha) + alpha  / alpha2 
+        else 
+            (-(α)*eαp1 + (α)) / ((α)^2)  
+        end 
         uk0 = χp1-χ
         sumPut = uk0*real(p.phi[1]) / (b - a)
         @inbounds for i = 1:length(uk)

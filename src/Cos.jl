@@ -79,6 +79,29 @@ function makeCosCharFuncPricer(
     return makeCosCharFuncPricer(cf, τ, m, a, b)
 end
 
+struct CosCVCharFuncPricer{COSPRICER,T}
+    pricer::COSPRICER
+    blackVariance::T
+end
+#using cumulants rule
+function makeCosCVCharFuncPricer(
+    cf::CharFunc{MAINT,CR},
+    τ::T,
+    m::Int,
+    l::Int
+) where {T,CR,MAINT}
+      blackVariance = abs(computeControlVariance(cf, τ, AttariControlVariance()))
+    phicv = makeCVCharFunc(cf, blackVariance)
+
+    c1, c2, c4 = computeCumulants(phicv, τ)
+    c2 = c2 + sqrt(abs(c4))
+    a = c1 - l * sqrt(abs(c2))
+    b = c1 + l * sqrt(abs(c2))
+    # println("a ",a," b ",b)   
+    cosPricer = makeCosCharFuncPricer(phicv, τ, m, a, b)
+    return CosCVCharFuncPricer(cosPricer, blackVariance)
+end
+
 #On interval [a,b]
 function makeCosCharFuncPricer(
     cf::CharFunc{MAINT,CR},
@@ -89,7 +112,7 @@ function makeCosCharFuncPricer(
 ) where {T,CR,MAINT}
     p = model(cf)
     piHigh = const_pi(cf)
-    z = @. (1:m) * piHigh / (b - a)
+    z = @. (0:m) * piHigh / (b - a)
     phiz = map(z -> evaluateCharFunc(cf, z, τ), z)
     phi = @. real(phiz) * cos(-z * a) - imag(phiz) * sin(-z * a)
     uk = Vector{typeof(piHigh)}(undef, m)
@@ -160,9 +183,9 @@ function priceEuropean(
             coeff = (-chi + estrike * psi) * 2 / (b - a)
             uk[i] = coeff
         end
-        sumPut = uk0 / 2
+        sumPut = uk0 / 2 * p.phi[1]
         @inbounds for k = eachindex(uk)
-            sumPut += p.phi[k] * p.uk[k]
+            sumPut += p.phi[k+1] * p.uk[k]
         end
         pricePut = discountDf * f * sumPut
     end
@@ -172,6 +195,18 @@ function priceEuropean(
     return pricePut
 end
 
+function priceEuropean(
+    p::CosCVCharFuncPricer{COSPRICER, T},
+    isCall::Bool,
+    strike::T,
+    forward::T,
+    τ::T,
+    discountDf::T,
+) where {COSPRICER, T}
+price = priceEuropean(p.pricer, isCall, strike, forward, τ, discountDf)
+blackPrice = blackScholes(isCall, strike, forward, p.blackVariance*τ,discountDf)
+return price+blackPrice
+end
 
 function priceDigital(
     p::CosCharFuncPricer{T},
@@ -210,9 +245,9 @@ function priceDigital(
             coeff = psi * 2 / (b - a)
             uk[i] = coeff
         end
-        sumPut = uk0 / 2
+        sumPut = uk0 / 2 * p.phi[1]
         @inbounds for k = eachindex(uk)
-            sumPut += p.phi[k] * p.uk[k]
+            sumPut += p.phi[k+1] * p.uk[k]
         end
         pricePut = discountDf * sumPut
     end
