@@ -16,7 +16,7 @@ end
 asymptoticLogOrder(model::Union{HestonParams{T},SchobelZhuParams{T},SVCJParams{T}}) where {T} = one(T)
 
 
-function findSwiftScaling(cf::CharFunc{MAINT,CR}, τ::T; mGuess=2, tol=sqrt(eps(T)), isInverseTime=false, mMax=16) where {T,CR,MAINT}
+function findSwiftScaling(cf::CharFunc{MAINT,CR}, τ::T; mGuess=2, tol=sqrt(eps(T)), isInverseTime=false, mMax=20) where {T,CR,MAINT}
     #find m, given nu, which is model dependent. Maree uses inverseTime factor, but Leitao, Ortiz Garcia 2018 does not 
     ν = asymptoticLogOrder(model(cf))
     epsilon = tol
@@ -661,44 +661,3 @@ function priceDigital(
 end
 
 
-function simpson(f, a::T, b::T, N::Int) where {T}
-    n = if N % 2 == 0
-        N
-    else
-        N + 1
-    end
-    h = (b - a) / n
-    s = f(a) + f(b)
-    s += 4sum(f.(a .+ collect(1:2:n) * h))
-    s += 2sum(f.(a .+ collect(2:2:n-1) * h))
-    return h / 3 * s
-end
-
-
-function boole(f, a::T, b::T, N::Int) where {T}
-    n = if N % 4 == 0
-        N
-    else
-        N + 1
-    end
-    h = (b - a) / n
-    s = 7f(a) + 7f(b)
-    s += 32sum(f.(a .+ collect(1:4:n-1) * h))
-    s += 32sum(f.(a .+ collect(3:4:n-1) * h))
-    s += 12sum(f.(a .+ collect(2:4:n-1) * h))
-    s += 14sum(f.(a .+ collect(4:4:n-1) * h))
-    return 2h / 45 * s
-end
-function trap(f, a::T, b::T, n::Int) where {T}
-    h = (b - a) / n
-    s = (f(a) + f(b)) / 2
-    s += sum(f.(a .+ collect(1:n-1) * h))
-    return h * s
-end
-
-function mid(f, a::T, b::T, N::Int) where {T}
-    n = N
-    h = (b - a) / n
-    s = sum(f.((a + h / 2) .+ collect(1:n-1) * h))
-    return h * s
-end

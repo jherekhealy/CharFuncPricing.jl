@@ -83,6 +83,7 @@ function evaluateLogCharFunc(
 			dt = min(t1,τ) - t0
 			cParams = HestonParams(p.v0, p.κ[i], p.θ[i], p.ρ[i], p.σ[i])
 			C, D = evaluateCD(cParams, z, C, D, dt)
+			#println(t0, " C=",C," D=",D)
 		end
         t1 = t0
 	end

@@ -16,33 +16,37 @@ using FastGaussQuadrature
 function makeCosCharFuncPricer(
     cf::CharFunc{MAINT,CR},
     τ::T;
+    s::Int=20, #number of derivatives to determine the number of terms
+    relStrike=1.0,
+    tol::T=1e-6,
+    nPoints::Int=32,
+    maxM::Int=64 * 1024
+) where {T,CR,MAINT}
+    l,mu = computeL(cf, τ; relStrike=relStrike, tol=tol)
+    m = computeM(cf, τ, l, mu, s=s, relStrike=relStrike, tol=tol, nPoints=nPoints)
+
+    return makeCosCharFuncPricer(cf, τ, min(maxM, m), -l, l)
+end
+
+function computeM(
+    cf::CharFunc{MAINT,CR},
+    τ::T,
+    l::T,
+    mu::T;
     s=20, #number of derivatives to determine the number of terms
     relStrike=1.0,
     tol::T=1e-6,
-    nPoints=32,
-    maxM = 64*1024
+    nPoints=32
 ) where {T,CR,MAINT}
-    t = Taylor1(Float64, 4)
-    cft = evaluateCharFunc(cf, t, τ)
-    phi0 = cft.coeffs[1]
-    phi1 = cft.coeffs[2]
-    mu = real(phi1 * -1im)
-    phi2 = cft.coeffs[3] * 2
-    phi3 = cft.coeffs[4] * 2 * 3
-    phi4 = cft.coeffs[5] * 2 * 3 * 4
-    phi4 = phi4 - 4im * mu * phi3 - 6 * mu^2 * phi2 + 4im * mu^3 * phi1 + mu^4 * phi0 #corresponds to (f(x)*exp(-i*x*mu))''''
-    # phi4 = evaluateFourthDerivative(cf, τ, zero(T)); mu=0.0
-    mu_n = abs(phi4) #4-th moment of log-returns. 
-    l = (2 * relStrike * mu_n / tol)^(1 / 4) #Truncation range, Junike (2024, Eq. (3.10)).
     integrand = function (u)
         1 / (2 * pi) * abs(u)^(s + 1) * abs(evaluateCharFunc(cf, u, τ) * exp(-1im * u * mu))
     end
-    if s <= 0
+    return if s <= 0
         c0 = cinf(model(cf), τ)
-        lWinv = Float64(c0 / (tol^(3/2) * l))
+        lWinv = Float64(c0 / (tol^(3 / 2) * l))
         lW = lambertW(lWinv)
         m = ceil(Int, lW / Float64(c0) / Base.pi * Float64(2l))
-        m =  max(64, m)
+        max(64, m)
     else
         # deResult = quadde(integrand, -Inf, Inf) #slow, gausshermite on 32 point does not work 
         al = ALTransformation()
@@ -58,9 +62,29 @@ function makeCosCharFuncPricer(
         # boundDeriv = 2*(z[2]-z[1])*sum(@.(abs(phiz .* exp(-1im*mu*z))*abs(z)^(s + 1)))/(2*pi)
         #println("mu ",mu,"phi4 ",phi4, " mu_n ",mu_n, " l ",l," res ",boundDeriv)
         tmp = 2^(s + 5 / 2) * boundDeriv * l^(s + 2) * 12 * relStrike
-        m = ceil(Int, (tmp / (s * pi^(s + 1) * tol))^(1 / s)) #Number of terms, Junike (2024, Sec. 6.1) 
+        ceil(Int, (tmp / (s * pi^(s + 1) * tol))^(1 / s)) #Number of terms, Junike (2024, Sec. 6.1) 
     end
-    return makeCosCharFuncPricer(cf, τ, min(maxM, m), -l, l)
+end
+
+function computeL(
+    cf::CharFunc{MAINT,CR},
+    τ::T;
+    relStrike=1.0,
+    tol::T=1e-6
+) where {T,CR,MAINT}
+    t = Taylor1(Float64, 4)
+    cft = evaluateCharFunc(cf, t, τ)
+    phi0 = cft.coeffs[1]
+    phi1 = cft.coeffs[2]
+    mu = real(phi1 * -1im)
+    phi2 = cft.coeffs[3] * 2
+    phi3 = cft.coeffs[4] * 2 * 3
+    phi4 = cft.coeffs[5] * 2 * 3 * 4
+    phi4 = phi4 - 4im * mu * phi3 - 6 * mu^2 * phi2 + 4im * mu^3 * phi1 + mu^4 * phi0 #corresponds to (f(x)*exp(-i*x*mu))''''
+    # phi4 = evaluateFourthDerivative(cf, τ, zero(T)); mu=0.0
+    mu_n = abs(phi4) #4-th moment of log-returns. 
+    l = (2 * relStrike * mu_n / tol)^(1 / 4) #Truncation range, Junike (2024, Eq. (3.10)).
+    return (l,mu)
 end
 
 
@@ -72,7 +96,8 @@ function makeCosCharFuncPricer(
     l::Int
 ) where {T,CR,MAINT}
     c1, c2, c4 = computeCumulants(cf, τ)
-    c2 = c2 + sqrt(abs(c4))
+    #println("c1 ",c1," c2 ",c2," c4 ",c4)
+    c2 = abs(c2) + sqrt(abs(c4))
     a = c1 - l * sqrt(abs(c2))
     b = c1 + l * sqrt(abs(c2))
     # println("a ",a," b ",b)   
@@ -90,7 +115,7 @@ function makeCosCVCharFuncPricer(
     m::Int,
     l::Int
 ) where {T,CR,MAINT}
-      blackVariance = abs(computeControlVariance(cf, τ, AttariControlVariance()))
+    blackVariance = abs(computeControlVariance(cf, τ, AttariControlVariance()))
     phicv = makeCVCharFunc(cf, blackVariance)
 
     c1, c2, c4 = computeCumulants(phicv, τ)
@@ -137,7 +162,7 @@ function makeCosCharFuncPricer(
     m = max(32, m)
     # println("a ",a," b ",b, " m ",m, " lwi ",lWinv, " c0 ",c0)
     piHigh = const_pi(cf)
-    z = @. (1:m) * piHigh / (b - a)
+    z = @. (0:m) * piHigh / (b - a)
     phiz = map(z -> evaluateCharFunc(cf, z, τ), z)
     phi = @. real(phiz) * cos(-z * a) - imag(phiz) * sin(-z * a)
     uk = Vector{typeof(piHigh)}(undef, m)
@@ -196,16 +221,16 @@ function priceEuropean(
 end
 
 function priceEuropean(
-    p::CosCVCharFuncPricer{COSPRICER, T},
+    p::CosCVCharFuncPricer{COSPRICER,T},
     isCall::Bool,
     strike::T,
     forward::T,
     τ::T,
     discountDf::T,
-) where {COSPRICER, T}
-price = priceEuropean(p.pricer, isCall, strike, forward, τ, discountDf)
-blackPrice = blackScholes(isCall, strike, forward, p.blackVariance*τ,discountDf)
-return price+blackPrice
+) where {COSPRICER,T}
+    price = priceEuropean(p.pricer, isCall, strike, forward, τ, discountDf)
+    blackPrice = blackScholes(isCall, strike, forward, p.blackVariance * τ, discountDf)
+    return price + blackPrice
 end
 
 function priceDigital(
@@ -259,9 +284,16 @@ end
 
 
 using TaylorSeries
-function computeCumulants(cf::CharFunc{MT,CR}, τ::T) where {MT,CR,T}
-    t = Taylor1(T, 5)
+function computeCumulants(cf::CharFunc{MT,CR}, τ::T; n=4) where {MT,CR,T}
+    t = Taylor1(T, n + 1)
     cft = evaluateLogCharFunc(cf, t, τ)
-    return (imag(cft.coeffs[2]), -real(cft.coeffs[3]) * 2, real(cft.coeffs[5] * 2 * 3 * 4))
+    #println(cft)
+    if n == 2
+        return (imag(cft.coeffs[2]), -real(cft.coeffs[3]) * 2)
+    elseif n == 4
+        return (imag(cft.coeffs[2]), -real(cft.coeffs[3]) * 2, real(cft.coeffs[5] * 2 * 3 * 4))
+    else
+        throw(DomainError(n, "n must be 2 or 4 for cumulants, got $n"))
+    end
 end
 

@@ -216,7 +216,7 @@ end
         for τ in τs, v0 in v0s, θ in θs, κ in κs, σ in σs, ρ in ρs
             params = HestonParams{Float64}(v0, κ, θ, ρ, σ)
             cf = DefaultCharFunc(params)
-            pricer = FilonCharFuncPricer(cf, τ, tTol=1e-8, qTol=1e-6)
+            pricer = FilonCharFuncPricer(cf, τ, tTol=1e-8, qTol=1e-8)
             for strike in strikes
                 counter += 1
                 price = priceEuropean(pricer, isCall, strike, forward, τ, 1.0)
@@ -225,6 +225,20 @@ end
         end
     end
 
+      pricesFI2A = zeros(length(paramset));
+    elapsed = @elapsed begin
+        local counter = 0
+        for τ in τs, v0 in v0s, θ in θs, κ in κs, σ in σs, ρ in ρs
+            params = HestonParams{Float64}(v0, κ, θ, ρ, σ)
+            cf = DefaultCharFunc(params)
+            pricer = AdaptiveFilonCharFuncPricer(cf, τ, qTol=1e-8)
+            for strike in strikes
+                counter += 1
+                price = priceEuropean(pricer, isCall, strike, forward, τ, 1.0)
+                pricesFI2A[counter] = price
+            end
+        end
+    end
     allp = [pricesC1, pricesC2, pricesF1, pricesF2, pricesF3, pricesF2B, pricesA1, pricesA2, pricesA0L]
     names = ["Cos","Cos-Adaptive","Flinn-Transf.","Flinn-Transf. (1e-9)", "Flinn-Transf. (1e-10)","Flinn (1e-10)","Andersen-Lake", "Andersen-Lake 1000", "Andersen-Lake GL"]
     for (p,name) in zip(allp,names)

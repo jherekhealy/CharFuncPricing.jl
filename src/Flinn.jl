@@ -174,7 +174,7 @@ struct FlinnCharFuncPricer{T}
         maxTailIterations=16
     ) where {T}
         if b == 0
-            b = computeTruncation(p, τ, T(1e-4))
+            b = computeTruncation(p, τ, T(1e-2))
         end
         mcos = Dict{T,Tuple{T,T,T,T}}()
         iPure = oneim(p)
@@ -223,7 +223,7 @@ struct FlinnCharFuncPricer{T}
             tailEstimate = quinticHermiteAux(an, bn, fan[1], fbn[1], fcn[1], fan[3], fbn[3], fcn[3])
             tailEstimateS = quinticHermiteAux(an, bn, fan[2], fbn[2], fcn[2], fan[4], fbn[4], fcn[4])
              #println(tailIteration," tail ",tailEstimate," ", tailEstimate/(bn-an)," ", ic, " ",ic*qTol," b=",b," ",bn-an," is=",is)
-            if (abs(tailEstimate) / min(T(1),bn - an) > tTol *      max(T(1), abs(ic))  || abs(tailEstimateS) / min(T(1),bn - an) > tTol *  max(T(1),abs(is))) && tailIteration < 24
+            if (abs(tailEstimate)  > tTol *      max(T(1), abs(ic))  || abs(tailEstimateS) > tTol *  max(T(1),abs(is))) && tailIteration < 24
                 a = b
                 b *= 2
                 ic += integrateQuinticHermite(fcos, a, b, qTol, 16, integralEstimate=ic)
@@ -489,17 +489,26 @@ end
 computeTruncation(p::CVCharFunc, τ::Float64, tol::Float64) =
     computeTruncation(p.main, τ, tol)
 
+function computeTruncation(cf::CharFunc{HestonTSParams{T1,T2}}, τ::T, tol::T) where {T,T1,T2}
+    p = model(cf)
+    averageParams = average(p, τ)
+    return computeTruncation(averageParams, τ, tol)
+end
+   
 function computeTruncation(cf::CharFunc{HestonParams{T}}, τ::T, tol::T) where {T}
     p = model(cf)
+    return computeTruncation(p, τ, tol)
+end
+function computeTruncation(p::HestonParams{T}, τ::T, tol::T) where {T}
     c_inf = cinf(p, τ)
     u = T(lambertW(Float64(c_inf / tol))) / c_inf
     if p.v0 * τ < 0.1 
          ushort = sqrt(T(lambertW(Float64(p.v0 * τ / (tol^2)))) / (p.v0 * τ))
-         u = ushort
+         u = max(u,ushort) #sometimes the regular heston cinf is more restrictive. ex: small v0, kappa, theta, large vol of vol, long maturity.
+    else
+        u = max(u,10.0) #this is an asymptotic formula, it does not make sense for small 
     end
-    #u = max(u,10.0)
-    #end
-    # println("umax ",u)
+    #println("umax ",u, " tol=",tol)
     return u
 end
 

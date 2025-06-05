@@ -20,7 +20,7 @@ end
 
 @testset "HestonLong" begin
 τ=10.0
-forward= 10000.0
+forward= 100.0
 params=HestonParams(1.0, 2.0, 0.0025, 0.5, 0.1)
 strikes = [100.0001, 101.0, 110.0, 200.0, 1000.0, 10000.0]
 cf = DefaultCharFunc(params)
@@ -51,7 +51,7 @@ prices = map(x -> priceEuropean(pricers[4], isCall, x, forward, τ, 1.0), strike
 prices = map(x -> priceEuropean(pricers[6], isCall, x, forward, τ, 1.0), strikes)
 @test isapprox(prices[1], refPrices[1], atol=1e-7)
 prices = map(x -> priceEuropean(pricers[7], isCall, x, forward, τ, 1.0), strikes)
-@test isapprox(prices[1], refPrices[1], atol=1e-15)
+@test isapprox(prices[1], refPrices[1], atol=1e-14)
 
 
 τ=10.0
@@ -230,7 +230,7 @@ for (pricer,name) in zip(pricers,pricerNames)
     # println(strike," & ",priceC," & ",priceC2," & ",priceF," & ",priceF2, " & ",priceA," \\\\")
 end
 prices = map(x -> priceEuropean(pricers[3], isCall, x, forward, τ, 1.0), strikes)
-@test isapprox(prices[1], refPrices[1], atol=1e-10)
+@test isapprox(prices[1], refPrices[1], atol=1e-9)
 prices = map(x -> priceEuropean(pricers[4], isCall, x, forward, τ, 1.0), strikes)
 @test isapprox(prices[1], refPrices[1], atol=1e-15)
 

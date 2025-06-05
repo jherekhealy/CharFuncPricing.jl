@@ -137,17 +137,6 @@ function computeControlVariance(
 	return 2phid0 / τ
 end
 
-function computeControlVariance(
-	cf::DefaultCharFunc{U},
-	τ::T, ::JoshiYangControlVariance,
-)::T where {T, U}
-	a, b = evaluateCharFuncAndDerivative(cf, eps(T) - 1im, τ)
-	phid0 = imag(b)
-	# println("phi'(-i)=", phid0)
-	variance = 2phid0 / τ
-	return variance #return min(variance, 10000*one(T))
-end
-
 function blackScholes(isCall::Bool, strike, forward, variance, discountDf)
 	sign = if isCall
 		1

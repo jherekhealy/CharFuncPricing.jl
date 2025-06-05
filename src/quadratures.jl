@@ -355,7 +355,47 @@ function simpsonAux(
     (b - a) / 6 * (fa + 4 * fm + fb)
 end
 
+function simpson(f, a::T, b::T,N::Int) where {T}
+    n = if N % 2 == 0
+        N
+    else
+        N + 1
+    end
+    h = (b - a) / n
+    s = f(a) + f(b)
+    s += 4sum(f.(a .+ collect(1:2:n) * h))
+    s += 2sum(f.(a .+ collect(2:2:n-1) * h))
+    return h / 3 * s
+end
 
+
+function boole(f, a::T, b::T, N::Int) where {T}
+    n = if N % 4 == 0
+        N
+    else
+        N + 1
+    end
+    h = (b - a) / n
+    s = 7f(a) + 7f(b)
+    s += 32sum(f.(a .+ collect(1:4:n-1) * h))
+    s += 32sum(f.(a .+ collect(3:4:n-1) * h))
+    s += 12sum(f.(a .+ collect(2:4:n-1) * h))
+    s += 14sum(f.(a .+ collect(4:4:n-1) * h))
+    return 2h / 45 * s
+end
+function trap(f, a::T, b::T, n::Int) where {T}
+    h = (b - a) / n
+    s = (f(a) + f(b)) / 2
+    s += sum(f.(a .+ collect(1:n-1) * h))
+    return h * s
+end
+
+function mid(f, a::T, b::T, N::Int) where {T}
+    n = N
+    h = (b - a) / n
+    s = sum(f.((a + h / 2) .+ collect(1:n-1) * h))
+    return h * s
+end
 
 const nulw_coteda = [0.1101854769234527e-01 -0.8814838153876216e-01 0.3085193353856676 -0.6170386707713351 0.7712983384641688
     0.4267465171184540e-01 -0.2560479102710724 0.5974451239658356 -0.5974451239658356 0.0
