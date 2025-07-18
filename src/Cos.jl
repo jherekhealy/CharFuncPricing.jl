@@ -139,7 +139,7 @@ function makeCosCharFuncPricer(
     piHigh = const_pi(cf)
     z = @. (0:m) * piHigh / (b - a)
     phiz = map(z -> evaluateCharFunc(cf, z, τ), z)
-    phi = real(phiz* exp(-z * a*oneim(cf)))
+    phi = @. real(phiz) * cos(-z * a) - imag(phiz) * sin(-z * a)
     uk = Vector{typeof(piHigh)}(undef, m)
     return CosCharFuncPricer(τ, a, b, uk, phi, piHigh)
 end
