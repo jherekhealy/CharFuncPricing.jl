@@ -37,6 +37,7 @@ end
         pricerCosFFT = CharFuncPricing.CosFFTCharFuncPricer(cf, τ, 1024, 10)
         prices[i,:] = priceEuropean(pricerCosFFT, ones(Bool, length(strikes)), strikes, S0*exp(r*τ), τ, exp(-r*τ))
     end
+    @test isapprox(refPrices, prices, atol=2e-5)
     #what is the effective forward? AndersenLake modify the original Crisotomo test by using F=100 intead of S0=100. very similar to using r=0.0.
 
 end

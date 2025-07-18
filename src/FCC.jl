@@ -1,4 +1,4 @@
-using FCCQuad
+#using FCCQuad #uncomment to use and point to local. In the future, adapt/copy part of FCCQuad into CharFuncPricing.
 #TODO add alpha, and price strikes together, no need for cache then.
 
 struct FCCACharFuncPricer{MAINT,T,CR}
