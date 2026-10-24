@@ -132,9 +132,9 @@ function makeCosCharFuncPricer(
     cf::CharFunc{MAINT,CR},
     τ::T,
     m::Int,
-    a::T,
-    b::T
-) where {T,CR,MAINT}
+    a::TX,
+    b::TX
+) where {T,CR,MAINT,TX}
     p = model(cf)
     piHigh = const_pi(cf)
     z = @. (0:m) * piHigh / (b - a)
@@ -173,11 +173,11 @@ end
 function priceEuropean(
     p::CosCharFuncPricer{T},
     isCall::Bool,
-    strike::T,
-    forward::T,
+    strike::TX,
+    forward::TX,
     τ::T,
-    discountDf::T,
-) where {T}
+    discountDf::TX,
+) where {T,TX}
     if τ != p.τ
         throw(DomainError(τ, string("maturity is different from pricer maturity ", p.τ)))
     end

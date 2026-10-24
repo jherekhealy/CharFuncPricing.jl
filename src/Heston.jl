@@ -90,17 +90,17 @@ cinf(params::HestonParams{T}, τ::T) where {T} =
 end
 
 @inline evaluateLogCharFunc(
-    p::CharFunc{HestonParams{T},CR},
+    p::CharFunc{HestonParams{MT},CR},
     z::CT,
     τ::T,
-) where {T,CR,CT} = evaluateLogCharFuncAL(p, z, τ)
+) where {T,CR,CT,MT} = evaluateLogCharFuncAL(p, z, τ)
 
 
 @inline function evaluateLogCharFuncAL(
-    cf::CharFunc{HestonParams{T},CR},
+    cf::CharFunc{HestonParams{MT},CR},
     z::CT,
     τ::T,
-) where {T,CR,CT}
+) where {T,CR,CT,MT}
     #follows Andersen-Lake fast implementation
     p = model(cf)
     v0 = p.v0

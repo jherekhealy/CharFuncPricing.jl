@@ -1,7 +1,7 @@
 name = "CharFuncPricing"
 uuid = "1fb851c3-be98-478b-9657-166436d5cfc1"
 authors = ["Jherek Healy <jherekhealy@protonmail.com>"]
-version = "0.8.0"
+version = "0.8.1"
 
 [deps]
 AbstractFFTs = "621f4979-c628-5d54-868e-fcf4e3e8185c"
@@ -23,21 +23,21 @@ TaylorSeries = "6aa5eb33-94cf-58f4-a9d0-e4b2c4fc25ea"
 TestEnv = "1e6cf692-eddd-4d53-88a5-2d735e33781b"
 
 [compat]
-AbstractFFTs = "1.5.0"
+AbstractFFTs = "1.5"
 BenchmarkTools = "1"
 DoubleExponentialFormulas = "0.1"
 #FCCQuad = "0.4.16"
 FFTW = "1"
 FastGaussQuadrature = "1"
-ForwardDiff = "0.10"
-NFFT = "0.13.7"
-Nemo = "0.27, 0.30"
-Optim = "1"
+ForwardDiff = "0.10, 1"
+NFFT = "0.13.7 - 0.14"
+Nemo = "0.27 - 0.57"
+Optim = "1, 2"
 Revise = "3.7.2"
-Roots = "1, 2"
+Roots = "1, 2, 3"
 SpecialFunctions = "1, 2"
 StatsBase = "0.34"
-TaylorSeries = "0.15"
+TaylorSeries = "0.15 - 0.22"
 TestEnv = "1"
 julia = "1"
 
