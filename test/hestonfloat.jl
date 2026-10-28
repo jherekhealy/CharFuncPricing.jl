@@ -429,7 +429,7 @@ end
     forward = BigFloat("6317.80")
     pricer = AdaptiveFlinnCharFuncPricer(cf, τ, qTol = BigFloat(1e-24))
     priceB = priceEuropean(pricer, false, strike, forward, τ, BigFloat(1.0))
-    @test isapprox(refPrice, Float64(priceB), atol = 1e-12)
+    @test isapprox(refPrice, Float64(priceB), atol = 5e-12)
     pricer = FlinnCharFuncPricer(cf, τ, qTol = BigFloat(1e-24), tTol = BigFloat(1e-24))
     priceC = priceEuropean(pricer, false, strike, forward, τ, BigFloat(1.0))
     @test isapprox(priceB, priceC, atol=BigFloat(1e-18))

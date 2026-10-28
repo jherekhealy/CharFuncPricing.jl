@@ -840,6 +840,50 @@ function computeCumulants(cf::CharFunc{HestonParams{T},CR}, τ::T) where {T,CR}
     return computeCumulants(model(cf), τ)
 end
 
+#Cumulants c1, c2, c4 of the log-forward by integrating the ODEs satisfied by the coefficients of the
+#cumulant generating function K(s) = A(s,τ) + v0 B(s,τ) = Σ (a_n + v0 b_n) s^n, from the Heston Riccati equation
+#B' = (s² - s)/2 + (ρσs - κ)B + σ²B²/2, A' = κθB. Accurate for any κ, including κ = 0.
+#The solutions are entire in t: we use a Taylor series method of order N on n steps of length ~ maxStep/rate.
+function computeCumulantsODE(p::HestonParams{T}, τ::TT; N::Int=30, maxStep=4) where {T,TT}
+    κ, θ, σ, ρ, v0 = p.κ, p.θ, p.σ, p.ρ, p.v0
+    ρσ = ρ * σ
+    σ2 = σ^2
+    rate = abs(κ) + abs(ρσ) + σ + 1
+    n = max(1, ceil(Int, rate * abs(τ) / maxStep))
+    h = τ / n
+    z = zero(κ * h)
+    b1, b2, b3, b4, a1, a2, a4 = z, z, z, z, z, z, z
+    B1, B2, B3, B4 = fill(z, N + 1), fill(z, N + 1), fill(z, N + 1), fill(z, N + 1)
+    for _ = 1:n
+        #series in the local variable u = (t - t_i)/h, coefficients already scaled by h^k
+        B1[1], B2[1], B3[1], B4[1] = b1, b2, b3, b4
+        sa1, sa2, sa4 = a1, a2, a4
+        for k = 0:N-1
+            c11 = z; c12 = z; c13 = z; c22 = z
+            @inbounds for j = 0:k
+                c11 += B1[j+1] * B1[k-j+1]
+                c12 += B1[j+1] * B2[k-j+1]
+                c13 += B1[j+1] * B3[k-j+1]
+                c22 += B2[j+1] * B2[k-j+1]
+            end
+            f = h / (k + 1)
+            src = k == 0 ? one(z) / 2 : z
+            @inbounds begin
+                B1[k+2] = f * (-src - κ * B1[k+1])
+                B2[k+2] = f * (src + ρσ * B1[k+1] - κ * B2[k+1] + σ2 * c11 / 2)
+                B3[k+2] = f * (ρσ * B2[k+1] - κ * B3[k+1] + σ2 * c12)
+                B4[k+2] = f * (ρσ * B3[k+1] - κ * B4[k+1] + σ2 * (c13 + c22 / 2))
+                sa1 += f * κ * θ * B1[k+1]
+                sa2 += f * κ * θ * B2[k+1]
+                sa4 += f * κ * θ * B4[k+1]
+            end
+        end
+        b1, b2, b3, b4 = sum(B1), sum(B2), sum(B3), sum(B4)
+        a1, a2, a4 = sa1, sa2, sa4
+    end
+    return a1 + v0 * b1, 2 * (a2 + v0 * b2), 24 * (a4 + v0 * b4)
+end
+
 function computeCumulants(p::HestonParams{T}, τ::T) where {T}
     lambda = p.κ
     ubar = p.θ
@@ -847,25 +891,9 @@ function computeCumulants(p::HestonParams{T}, τ::T) where {T}
     eta = p.σ
     rho = p.ρ
     term = τ
-    if lambda == 0 && eta == 0
-        c1 = -u0 * term / 2
-        c2 = u0 * term
-        c4 = 0
-        return c1, c2, c4
-    elseif lambda == 0
-        c1 = -u0 * term / 2
-        c2 = u0 * term * (1 + term * term * eta * (eta * term / 12 - rho / 2))
-        c4 =
-            u0 *
-            eta^2 *
-            term^3 *
-            (
-                2 * rho^2 - 2 * eta * term * rho +
-                eta^4 * term^4 * 17 / 1680 +
-                eta^4 * term^5 * rho^2 * 11 / 20 - eta * term * rho^3 / 2 +
-                eta^2 * term^2 * 3 / 10 - eta^3 * term^3 * rho * 17 / 120 + 1
-            )
-        return c1, c2, c4
+    if abs(lambda * term) < 0.5
+        #the closed form below suffers from catastrophic cancellation (terms in 1/κ^7) for small κτ.
+        return computeCumulantsODE(p, τ)
     end
     elt = exp(-lambda * term)
     c1 = (1 - elt) * (ubar - u0) / (2 * lambda) - ubar * term / 2

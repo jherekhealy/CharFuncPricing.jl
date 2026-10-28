@@ -52,3 +52,22 @@ end
     @test isapprox(-real(cft.coeffs[3]) * 2, c2, atol = 1e-3)
     @test isapprox(cft.coeffs[5] * 2 * 3 * 4, c4, atol = 1e-3)
 end
+
+@testset "HestonCumulantsSmallKappa" begin
+    #the closed form cancels catastrophically for small κτ, references from BigFloat Taylor expansion of the char. func.
+    refC4 = Dict(1e-2 => 0.009974159883692182, 1e-3 => 0.01003791387894611, 1e-6 => 0.010045022404969867)
+    for (κ, c4) in refC4
+        cum = CharFuncPricing.computeCumulants(CharFuncPricing.HestonParams(0.025, κ, 0.025, -0.65, 0.4), 1.0)
+        @test isapprox(cum[3], c4, rtol=1e-8)
+    end
+    p = CharFuncPricing.HestonParams(0.025, 1.0, 0.025, -0.65, 0.4)
+    @test all(isapprox.(CharFuncPricing.computeCumulantsODE(p, 1.0), CharFuncPricing.computeCumulants(p, 1.0), rtol=1e-9))
+    for κ in [0.0, 1e-10]
+        cf = DefaultCharFunc(CharFuncPricing.HestonParams(0.025, κ, 0.025, -0.65, 0.4))
+        pricer = makeCosCharFuncPricer(cf, 1.0, 256, 12)
+        refPricer = ALCharFuncPricer(cf, n=64)
+        for strike in [0.8, 1.0, 1.2]
+            @test isapprox(priceEuropean(pricer, true, strike, 1.0, 1.0, 1.0), priceEuropean(refPricer, true, strike, 1.0, 1.0, 1.0), atol=1e-5)
+        end
+    end
+end
