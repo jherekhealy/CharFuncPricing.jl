@@ -1,8 +1,8 @@
 using NFFT
 export CosFFTCharFuncPricer, priceEuropean
 
-struct CosFFTCharFuncPricer{MAINT,CR,T}
-    cf::CharFunc{MAINT,CR}
+struct CosFFTCharFuncPricer{MAINT,CR,T,CF<:CharFunc{MAINT,CR}}
+    cf::CF
     τ::T
     uk::Array{T,1}
     a::T

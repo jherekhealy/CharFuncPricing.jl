@@ -62,6 +62,8 @@ using CharFuncPricing, Test
         generic = invoke(CharFuncPricing.computeCumulants, Tuple{CharFuncPricing.CharFunc,Any}, cf, τ; n=2)
         @test all(isapprox.(generic, computeCumulants(cf, τ)[1:2], rtol=1e-12))
         @test_throws DomainError invoke(CharFuncPricing.computeCumulants, Tuple{CharFuncPricing.CharFunc,Any}, cf, τ; n=3)
+        #characteristic functions without cumulants
+        @test_throws ArgumentError makeCosCharFuncPricer(PadeCharFunc(RoughHestonParams(0.1, -0.65, 0.3, s -> 0.025)), τ, 64, 12)
     end
     @testset "ChebyshevCharFunc" begin
         ccf = CharFuncPricing.ChebyshevCharFunc(cf, 200.0, 128, τ)

@@ -24,7 +24,6 @@ end
 function CharFuncPricing.evaluateLogCharFunc(p::ChebyshevCharFunc{CF,MT,CR}, z::CT, τ::T) where {T,CT,CF,MT,CR}
     z = inverseTransform(p.transformation,z)    
     if (real(z) > p.upperBound || real(z) < 0.0) 
-        println("!!! ",z)
         return one(CR)*(-300)
     end
     cheb2interp(p.coeff, real(z), 0.0, p.upperBound)

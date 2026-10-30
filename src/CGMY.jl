@@ -37,7 +37,6 @@ function computeCumulants(p::CGMYParams{T}, τ::T) where {T}
     c1 = p.C * τ * gamma(1 - p.Y) * (p.M^(p.Y - 1) - p.G^(p.Y - 1)) 
     c2 = p.σ^2 * τ + p.C * τ * gamma(2 - p.Y) * (p.M^(p.Y - 2) + p.G^(p.Y - 2))
     c4 = p.C * τ * gamma(4 - p.Y) * (p.M^(p.Y - 4) + p.G^(p.Y - 4))
-    println(c1, " ", c2, " ", c4)
     return c1, c2, c4
 end
 

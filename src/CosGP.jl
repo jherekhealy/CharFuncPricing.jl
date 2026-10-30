@@ -1,3 +1,4 @@
+export CosGPCharFuncPricer, makeCosGPCharFuncPricer
 #Cos pricing based on gil pelaez formula. A curiosity.
 struct CosGPCharFuncPricer{T}
     τ::T

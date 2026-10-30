@@ -29,7 +29,6 @@ function computeTruncation(cf::CharFunc{VarianceGammaParams{T1}}, τ::T, tol::T)
     c1, c2, c4 = computeCumulants(cf, τ)
     c2 = c2 + sqrt(abs(c4))
     b = c1 + l * sqrt(abs(c2))
-    println("truncation b=", b)
     return b
 end
 

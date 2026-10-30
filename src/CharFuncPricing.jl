@@ -44,5 +44,4 @@ include("JoshiYang.jl")
 include("Swift.jl")
 include("ChebyshevCharFunc.jl")
 include("PricerFactory.jl")
-include("FCC.jl") #requires FCCQuad.jl which is not a julia standard package.
 end

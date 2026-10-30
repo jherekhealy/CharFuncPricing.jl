@@ -287,6 +287,9 @@ using TaylorSeries
 function computeCumulants(cf::CharFunc{MT,CR}, τ::T; n=4) where {MT,CR,T}
     t = Taylor1(T, n + 1)
     cft = evaluateLogCharFunc(cf, t, τ)
+    if !(cft isa Taylor1) || length(cft.coeffs) < n + 1
+        throw(ArgumentError(string("cumulants are not available for ", nameof(typeof(cf)), ", use an explicit truncation range [a, b] instead")))
+    end
     #println(cft)
     if n == 2
         return (imag(cft.coeffs[2]), -real(cft.coeffs[3]) * 2)

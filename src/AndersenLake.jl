@@ -160,8 +160,8 @@ end
 
 #Andersen and Lake "Robust High-Precision Option Pricing by Fourier Transforms: Contour Deformations and Double-Exponential Quadrature"
 #Supports Heston & ShobelZhu
-struct ALCharFuncPricer{T}
-    cf::CharFunc
+struct ALCharFuncPricer{T,CF<:CharFunc}
+    cf::CF
     quadrature::ALQuadrature{T}
 end
 
@@ -395,17 +395,7 @@ function optimalAlpha(
                         #kmax = find_zero(kObjective, (one(T)+keps, kp0 - keps), A42()) #sinhcosh formulation
                         kmax = find_zero(kObjective, (one(T) + keps, kp0 - keps), A42()) #log formulation
                     catch e
-                        println(
-                            km0,
-                            " ",
-                            kp0,
-                            " ",
-                            f0,
-                            " ",
-                            f1,
-                            " ",
-                            kObjective(1 + 10 * eps()),
-                        )
+                        @error "Andersen-Lake: no root for the maximum k" km0 kp0 f0 f1
                         rethrow(e)
                         # kmax = abs(f0) < abs(f1) ? 1 + keps : kp0
                         #    rethrow(e)

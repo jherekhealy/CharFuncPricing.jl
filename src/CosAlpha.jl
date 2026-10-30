@@ -5,8 +5,8 @@ struct CosAlphaCharFuncPricer{T}
     a::T
     b::T
     α::T
-    uk::AbstractArray{T}
-    phi::AbstractArray{Complex{T}}
+    uk::Vector{T}
+    phi::Vector{Complex{T}}
     pi::T
 end
 
@@ -28,7 +28,7 @@ function makeCosAlphaCharFuncPricer(
     z = @. (0:m) * piHigh / (b - a)
     phiz = map(z -> evaluateCharFunc(cf, z-Complex(0,α+1), τ), z)
     uk = Vector{typeof(piHigh)}(undef, m)
-    return CosAlphaCharFuncPricer(τ, a, b, α, uk, phiz, piHigh)
+    return CosAlphaCharFuncPricer{T}(τ, a, b, α, uk, phiz, piHigh)
 end
 
 

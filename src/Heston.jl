@@ -224,15 +224,13 @@ struct CuiCharFunc{MT,CR} <: CharFunc{MT,CR} #model type, return type (e.g. Comp
     model::MT
 end
 
-CuiCharFunc(params::HestonParams{Float64}) =
-    CuiCharFunc{HestonParams{Float64},Complex,Type}(params, Complex)
+CuiCharFunc(params::HestonParams{T}) where {T} = CuiCharFunc{HestonParams{T},Complex{T}}(params)
 @inline model(cf::CuiCharFunc) = cf.model
-@inline field(cf::CuiCharFunc) = cf.field
 @inline evaluateLogCharFunc(
     p::CuiCharFunc{HestonParams{T},CR},
     z::CT,
     τ::T,
-) where {T,CR,CF,CT} = evaluateLogCharFuncAL(p, z, τ)
+) where {T,CR,CT} = evaluateLogCharFuncAL(p, z, τ)
 
 
 function evaluateLogCharFuncCui(

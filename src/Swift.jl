@@ -1,5 +1,5 @@
 using FFTW, LinearAlgebra
-export SwiftCharFuncPricer
+export SwiftCharFuncPricer, makeSwiftCharFuncPricer, findSwiftScaling
 
 struct SwiftCharFuncPricer{T}
     τ::T
@@ -65,7 +65,7 @@ function makeSwiftCharFuncPricerMaree(cf::CharFunc{MAINT,CR}, τ::T, m::Int, l::
         end
         cl = calculate(densityCalculator, cf, τ, m, κ, J, phiz)
         tol1 = abs(1 - sum(cl) / twom2)
-        println(ln2J, " tol1=", tol1) #in master thesis, m is incremented and kappa deduced from ceil. 
+        @debug "Swift scaling" ln2J tol1 #in master thesis, m is incremented and kappa deduced from ceil. 
     end
     return SwiftCharFuncPricer(τ, c, m, J, J, κ, κ, zeros(T, length(cl)), cl)
 end
@@ -135,7 +135,7 @@ function makeSwiftCharFuncPricerRomo(cf::CharFunc{MAINT,CR}, τ::T, m::Int, l::N
         cl = calculate(densityCalculator, cf, τ, m, κ, J, phiz)
         tol1 = abs(1 - (sum(cl[1:end]) - cl[κ] / 2 - cl[κ+1] / 2) / twom2)
         # tol1 = abs(1 - (sum(cl[1:end])) / twom2)
-        println(m, " ", κ, " ", ln2J, " ", tol1) #in master thesis, m is incremented and kappa deduced from ceil. 
+        @debug "Swift scaling" m κ ln2J tol1 #in master thesis, m is incremented and kappa deduced from ceil. 
     end
     return SwiftCharFuncPricer(τ, c, m, J, J, κ, κ, zeros(T, length(cl)), cl)
     #

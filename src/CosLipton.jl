@@ -4,8 +4,8 @@ struct CosLiptonCharFuncPricer{T}
     τ::T
     a::T
     b::T
-    uk::AbstractArray{T}
-    phi::AbstractArray{Complex{T}}
+    uk::Vector{T}
+    phi::Vector{Complex{T}}
     pi::T
 end
 
@@ -25,7 +25,7 @@ function makeCosLiptonCharFuncPricer(
     z = @. (0:m) * piHigh / (b - a)
     phiz = map(z -> evaluateCharFunc(cf, z-0.5im, τ), z)
     uk = Vector{typeof(piHigh)}(undef, m)
-    return CosLiptonCharFuncPricer(τ, a, b, uk, phiz, piHigh)
+    return CosLiptonCharFuncPricer{T}(τ, a, b, uk, phiz, piHigh)
 end
 
 
