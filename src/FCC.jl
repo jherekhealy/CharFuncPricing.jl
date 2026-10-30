@@ -1,19 +1,22 @@
 export FCCCharFuncPricer
 
 #Adaptive Filon-Clenshaw-Curtis quadrature of the Lewis formula.
-#The amplitude g(u) = φ(u - i/2) / (u² + 1/4) is approximated on [0, b] by piecewise Chebyshev interpolants of degree N,
-#on panels bisected until the last Chebyshev coefficients are negligible. The panels do not depend on the strike:
+#The amplitude g(u) = φ(u - i/2) / (u² + 1/4) is approximated on [0, b] by piecewise Chebyshev interpolants,
+#on panels refined until the last Chebyshev coefficients are negligible. The panels do not depend on the strike:
 #for each strike, the oscillatory factor exp(-i u log(K/F)) is integrated exactly against the interpolants (Filon).
+#With hp=true, a panel which is not resolved at degree N is first tried at degree 2N (the Clenshaw-Curtis points are
+#nested, only N new evaluations are needed) before being bisected.
 struct FCCCharFuncPricer{T,CR}
     τ::T
     b::T
     centers::Vector{T}
     halfWidths::Vector{T}
-    coeffs::Matrix{CR} #Chebyshev coefficients, one column per panel
+    coeffs::Vector{Vector{CR}} #Chebyshev coefficients of each panel
+    level::Vector{Int} #1 for degree N, 2 for degree 2N
     vControl::T
     pi::T
-    xGL::Vector{T} #Gauss-Legendre nodes, for panels where the oscillation is weak
-    wvGL::Matrix{CR} #Gauss-Legendre weights times the interpolant values at the nodes, one column per panel
+    xGL::Vector{Vector{T}} #Gauss-Legendre nodes of each level, for panels where the oscillation is weak
+    wvGL::Vector{Vector{CR}} #Gauss-Legendre weights times the interpolant values at the nodes, for each panel
 end
 
 function FCCCharFuncPricer(
@@ -22,44 +25,80 @@ function FCCCharFuncPricer(
     qTol::T=T(1e-10),
     b::T=zero(T),
     N::Int=16,
+    hp::Bool=true,
+    dyadic::Bool=true, #initial panels [0,1], [1,2], [2,4], ..., [b/2,b], otherwise nInitial equal panels
+    nInitial::Int=4,
     maxDepth::Int=30,
 ) where {MAINT,CR,T}
     iPure = oneim(p)
-    g = function (u)
+    gRaw = function (u)
         evaluateCharFunc(p, u - iPure / 2, τ) / (u^2 + one(T) / 4)
     end
+    VT = typeof(gRaw(zero(T)))
+    #panel endpoints and midpoints are shared between panels (and with the truncation search)
+    cache = Dict{T,VT}()
+    g(u) = get!(() -> gRaw(u), cache, u)
     if b == zero(T)
         b = fccTruncation(g, qTol)
     end
     tNodes = [cospi(T(j) / N) for j = 0:N]
+    tNodes2 = [cospi(T(j) / (2N)) for j = 0:2N]
+    #Clenshaw-Curtis nodes of [a1, b1], the end and mid points exactly
+    node(a1, b1, c, h, t, j, n) = j == 0 ? b1 : (j == n ? a1 : (2j == n ? c : c + h * t))
     centers = T[]
     halfWidths = T[]
-    coeffList = Vector{Vector{typeof(g(zero(T)))}}()
+    coeffList = Vector{Vector{VT}}()
+    levels = Int[]
+    #resolved when the Chebyshev tail is below the tolerance or at the level of the round-off in the values
+    isResolved(coeff, values, h) = begin
+        tail = abs(coeff[end]) + abs(coeff[end-1])
+        tail <= qTol / b || tail <= 64 * length(coeff) * eps(T) * maximum(abs, values)
+    end
     #depth-first bisection, panels are accepted from left to right
-    stack = [(zero(T), b, 0)]
+    bp = if dyadic
+        vcat(zero(T), [T(2)^k for k = 0:floor(Int, log2(b)) if T(2)^k < b], b)
+    else
+        collect(range(zero(T), b, length=nInitial + 1))
+    end
+    stack = [(bp[i], bp[i+1], 0) for i = length(bp)-1:-1:1]
     while !isempty(stack)
         (a1, b1, depth) = pop!(stack)
         c = (a1 + b1) / 2
         h = (b1 - a1) / 2
-        values = [g(c + h * t) for t in tNodes]
+        values = [g(node(a1, b1, c, h, tNodes[j+1], j, N)) for j = 0:N]
         coeff = chebCoefficientsFromValues(values)
-        tailError = h * (abs(coeff[end]) + abs(coeff[end-1]))
-        if tailError <= qTol * h / b || depth >= maxDepth
+        level = 1
+        resolved = isResolved(coeff, values, h)
+        if !resolved && hp
+            values2 = Vector{VT}(undef, 2N + 1)
+            values2[1:2:end] = values
+            for j = 2:2:2N
+                values2[j] = g(node(a1, b1, c, h, tNodes2[j], j - 1, 2N))
+            end
+            coeff = chebCoefficientsFromValues(values2)
+            level = 2
+            resolved = isResolved(coeff, values2, h)
+        end
+        if resolved || depth >= maxDepth
             push!(centers, c)
             push!(halfWidths, h)
             push!(coeffList, coeff)
+            push!(levels, level)
         else
             push!(stack, (c, b1, depth + 1))
             push!(stack, (a1, c, depth + 1))
         end
     end
-    coeffs = reduce(hcat, coeffList)
-    xGL, wGL = gausslegendre(2N + 16)
-    xGL = T.(xGL)
-    wGL = T.(wGL)
-    tGL = [cos(k * acos(x)) for x in xGL, k = 0:N]
-    wvGL = wGL .* (tGL * coeffs)
-    return FCCCharFuncPricer{T,eltype(coeffs)}(τ, b, centers, halfWidths, coeffs, T(getControlVariance(p)), const_pi(p), xGL, wvGL)
+    xGL = Vector{Vector{T}}(undef, 2)
+    tGL = Vector{Matrix{T}}(undef, 2)
+    wGL = Vector{Vector{T}}(undef, 2)
+    for (l, n) in enumerate((N, 2N))
+        x, w = gausslegendre(2n + 16)
+        xGL[l], wGL[l] = T.(x), T.(w)
+        tGL[l] = [cos(k * acos(xi)) for xi in xGL[l], k = 0:n]
+    end
+    wvGL = [wGL[l] .* (tGL[l] * coeff) for (coeff, l) in zip(coeffList, levels)]
+    return FCCCharFuncPricer{T,VT}(τ, b, centers, halfWidths, coeffList, levels, T(getControlVariance(p)), const_pi(p), xGL, wvGL)
 end
 
 Base.broadcastable(p::FCCCharFuncPricer) = Ref(p)
@@ -119,22 +158,26 @@ function priceEuropean(
         throw(DomainError(τ, string("maturity is different from pricer maturity ", p.τ)))
     end
     ω = log(strike / forward)
-    N = size(p.coeffs, 1) - 1
-    M = zeros(Complex{T}, N + 1)
+    M = zeros(Complex{T}, maximum(length, p.coeffs))
     integral = zero(T)
     @inbounds for i = eachindex(p.centers)
         h = p.halfWidths[i]
         κ = -ω * h
+        coeff = p.coeffs[i]
+        n = length(coeff) - 1
         s = zero(Complex{T})
-        if abs(κ) >= N
-            chebOscillatoryMoments!(M, κ)
-            for k = 1:N+1
-                s += p.coeffs[k, i] * M[k]
+        if abs(κ) >= n
+            Mi = view(M, 1:n+1)
+            chebOscillatoryMoments!(Mi, κ)
+            for k = 1:n+1
+                s += coeff[k] * Mi[k]
             end
         else
             #weak oscillation: Gauss-Legendre on the interpolant
-            for j = eachindex(p.xGL)
-                s += p.wvGL[j, i] * cis(κ * p.xGL[j])
+            x = p.xGL[p.level[i]]
+            wv = p.wvGL[i]
+            for j = eachindex(x)
+                s += wv[j] * cis(κ * x[j])
             end
         end
         integral += real(h * cis(-ω * p.centers[i]) * s)

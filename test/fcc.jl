@@ -32,6 +32,15 @@ using CharFuncPricing, Test
     @test pricer.b == 200.0
     @test isapprox(priceEuropean(pricer, true, 110.0, forward, τ, df), priceEuropean(refPricer, true, 110.0, forward, τ, df), atol=1e-9)
     @test_throws DomainError priceEuropean(pricer, true, 100.0, forward, 2τ, df)
+    #tolerance below the round-off level of the integrand: the refinement must stop
+    cfLow = DefaultCharFunc(HestonParams(0.0001, 2.0, 0.0001, -0.5, 0.01))
+    for N in [12, 16, 24], hp in [true, false]
+        pricer = FCCCharFuncPricer(cfLow, 0.25, qTol=1e-14, N=N, hp=hp)
+        @test length(pricer.centers) < 100
+    end
+    #uniform initial partition
+    pricer = FCCCharFuncPricer(cf, τ, qTol=1e-10, dyadic=false)
+    @test isapprox(priceEuropean(pricer, false, 90.0, forward, τ, df), priceEuropean(refPricer, false, 90.0, forward, τ, df), atol=1e-10)
     #Variance Gamma
     cfvg = DefaultCharFunc(CharFuncPricing.VarianceGammaParams(0.12, -0.14, 0.2))
     pricerCos = makeCosCharFuncPricer(cfvg, τ, tol=1e-10)
