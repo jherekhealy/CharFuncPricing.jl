@@ -30,7 +30,7 @@ struct JoshiYangCharFuncPricer{T, CR}
 			end ##else overflow
 		end
 		phi = @. (evaluateCharFunc(phicv, x - iPure, τ) / (x * (x - iPure)))
-
+		zeroNonFiniteTail!(phi, x, w)
 		return new{T, CR}(τ, w, x, phi, blackVariance, const_pi(cf))
 	end
 
@@ -45,14 +45,13 @@ struct JoshiYangCharFuncPricer{T, CR}
 
 		iPure = oneim(cf)
 		phi = @. (evaluateCharFunc(phicv, x - iPure, τ) / (x * (x - iPure)))
-
+		zeroNonFiniteTail!(phi, x, w)
 		return new{T, CR}(τ, w, x, phi, blackVariance, const_pi(cf))
 	end
 
 end
 Base.broadcastable(p::JoshiYangCharFuncPricer) = Ref(p)
 Base.broadcastable(p::CVCharFunc) = Ref(p)
-Base.broadcastable(p::DefaultCharFunc) = Ref(p)
 
 
 makeCVCharFunc(cf::CharFunc{MAINT, CR}, blackVariance::T) where {MAINT, CR, T} =
@@ -100,4 +99,24 @@ function priceEuropean(
 	end
 	putPrice = callPrice - (forward - strike) * discountDf
 	return putPrice
+end
+
+#Characteristic functions computed by explicit schemes (e.g. AdamsCharFunc) may not be finite at the largest nodes.
+#Their contribution is set to zero when the nodes are beyond the last finite one and the integrand is negligible there.
+function zeroNonFiniteTail!(phi::AbstractVector, x::AbstractVector, w::AbstractVector)
+    bad = findall(v -> !isfinite(v), phi)
+    isempty(bad) && return phi
+    good = findall(isfinite, phi)
+    isempty(good) && throw(DomainError(x[bad[1]], "the characteristic function is not finite at any node"))
+    xLast = maximum(x[good])
+    if minimum(x[bad]) <= xLast
+        throw(DomainError(minimum(x[bad]), "the characteristic function is not finite at a node below a finite one"))
+    end
+    iLast = good[argmax(x[good])]
+    scale = maximum(i -> abs(w[i] * phi[i]), good)
+    if abs(w[iLast] * phi[iLast]) > sqrt(eps(real(eltype(phi)))) * scale
+        throw(DomainError(minimum(x[bad]), "the characteristic function is not finite while the integrand is not negligible, increase its accuracy"))
+    end
+    phi[bad] .= zero(eltype(phi))
+    return phi
 end

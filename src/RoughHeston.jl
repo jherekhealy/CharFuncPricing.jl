@@ -44,7 +44,7 @@ PadeCharFunc(model::RoughHestonParams{T}) where {T} = PadeCharFunc{Complex{T}}(m
 
 @inline model(cf::PadeCharFunc) = cf.model
 
-@inline function evaluateCharFunc(p::CharFunc{RoughHestonParams{T},CR}, z::CT, τ::T)::CR where {T,CR,CT}
+@inline function evaluateCharFunc(p::CharFunc{RoughHestonParams{T},CR}, z::CT, τ::T) where {T,CR,CT}
     return exp(evaluateLogCharFunc(p, z, τ))
 end
 
@@ -98,14 +98,39 @@ end
 
 
 
-## Based on the R code from Jim Gatheral - the various sums would benefit from optimization
-struct AdamsCharFunc{MT,CR} <: CharFunc{MT,CR} #model type, return type (e.g. Complex or acb)
-    model::MT
+## Fractional Adams scheme of Diethelm, Ford and Freed, based on the R code from Jim Gatheral.
+#The weights do not depend on u nor on the maturity (up to the factor Δ^α), they are computed once.
+#The error is of order 1 + α in the time step. With richardson=true, the log characteristic function is extrapolated
+#from n and 2n steps assuming this order, at the cost of n + 2n steps, and of the stability limit in u of the n steps.
+struct AdamsWeights{T}
     n::Int
+    a0::Vector{T} #corrector weight of the initial value, k = 1..n-1
+    aj::Vector{T} #corrector weights, q = 0..n-1
+    bj::Vector{T} #predictor weights, r = 0..n
+end
+function AdamsWeights(α::T, n::Int) where {T}
+    g1, g2 = gamma(α + 1), gamma(α + 2)
+    a0 = [(k^(α + 1) - (k - α) * (k + 1)^α) / g2 for k = 1:n-1]
+    aj = [((q + 2)^(α + 1) + q^(α + 1) - 2 * (q + 1)^(α + 1)) / g2 for q = 0:n-1]
+    bj = [((r + 1)^α - r^α) / g1 for r = 0:n]
+    return AdamsWeights{T}(n, a0, aj, bj)
 end
 
-AdamsCharFunc{CR}(model::MT, n::Int) where {MT,CR} = AdamsCharFunc{MT,CR}(model, n) #
-AdamsCharFunc(model::RoughHestonParams{T}, n::Int=200) where {T} = AdamsCharFunc{Complex{T}}(model, n)
+struct AdamsCharFunc{MT,CR,T} <: CharFunc{MT,CR} #model type, return type (e.g. Complex or acb)
+    model::MT
+    n::Int
+    weights::AdamsWeights{T}
+    richardson::Bool
+    weights2::AdamsWeights{T} #weights for 2n steps, used with richardson=true
+end
+
+function AdamsCharFunc{MT,CR}(model::MT, n::Int; richardson::Bool=false) where {MT<:RoughHestonParams,CR}
+    α = model.H + 0.5
+    w = AdamsWeights(α, n)
+    return AdamsCharFunc{MT,CR,typeof(α)}(model, n, w, richardson, richardson ? AdamsWeights(α, 2n) : w)
+end
+AdamsCharFunc{CR}(model::MT, n::Int; kwargs...) where {MT,CR} = AdamsCharFunc{MT,CR}(model, n; kwargs...) #
+AdamsCharFunc(model::RoughHestonParams{T}, n::Int=200; kwargs...) where {T} = AdamsCharFunc{Complex{T}}(model, n; kwargs...)
 
 @inline model(cf::AdamsCharFunc) = cf.model
 
@@ -124,54 +149,54 @@ function evaluateLogCharFunc(p::AdamsCharFunc{RoughHestonParams{T},CR}, z::CT, �
     if abs(z * (z + 1im)) < sqrt(eps(T))
         return zero(typeof(z * one(T)))
     end
-    params = model(p)
-    dhA = adams(p, z, τ)
-    n = p.n
-    integral = sum(dhA .* [params.varianceCurve(τ * (1 - k / n)) for k = 0:n]) * τ / n
-    return integral
+    if p.richardson
+        r = 2^(model(p).H + 1.5) #2^(1+α)
+        return (r * adamsLogCharFunc(model(p), p.weights2, z, τ) - adamsLogCharFunc(model(p), p.weights, z, τ)) / (r - 1)
+    end
+    return adamsLogCharFunc(model(p), p.weights, z, τ)
 end
 
-function adams(p::AdamsCharFunc{RoughHestonParams{T},CR}, a, bigT) where {T,CR}
-    params = p.model
+function adamsLogCharFunc(params::RoughHestonParams, w::AdamsWeights, z, τ)
+    dhA = adams(params, w, z, τ)
+    n = w.n
+    #trapezoidal rule (a plain sum would make the scheme first order)
+    integral = (dhA[1] * params.varianceCurve(τ) + dhA[n+1] * params.varianceCurve(zero(τ))) / 2
+    for k = 1:n-1
+        integral += dhA[k+1] * params.varianceCurve(τ * (1 - k / n))
+    end
+    return integral * τ / n
+end
+
+#returns the derivative of h on the time grid, the element type follows z (e.g. ForwardDiff duals).
+adams(p::AdamsCharFunc, a, bigT) = adams(model(p), p.weights, a, bigT)
+
+function adams(params::RoughHestonParams, w::AdamsWeights, a, bigT)
     rho = params.ρ
     nu = params.ν
-    obj = function (u, h)
-        return -u / 2 * (u + 1im) + rho * nu * u * h * 1im + (nu * h)^2 / 2
-    end
-    n = p.n
-    DELTA = bigT / n
-    H = params.H
-    alpha = H + 0.5
-    hA = zeros(CR, n + 1)
-    dhA = zeros(CR, n + 1)
-    f = zeros(CR, n + 1)
-
-
-    a01 = (DELTA^alpha) / gamma(alpha + 2) * alpha
-    a11 = (DELTA^alpha) / gamma(alpha + 2)
-    b01 = (DELTA^alpha) / gamma(alpha + 1)
-    dhA[1] = obj(a, hA[1])
+    obj(u, h) = -u / 2 * (u + 1im) + rho * nu * u * h * 1im + (nu * h)^2 / 2
+    n = w.n
+    alpha = params.H + 0.5
+    dAlpha = (bigT / n)^alpha
+    E = typeof(obj(a, zero(a)))
+    hA = zeros(E, n + 1)
+    dhA = zeros(E, n + 1) #dhA[k] = obj(a, hA[k]), also the f of the scheme
+    a0, aj, bj = w.a0, w.aj, w.bj
     # hA[1] is zero, boundary condition
-    hP = b01 * obj(a, hA[1])
-    hA[2] = a01 * obj(a, hA[1]) + a11 * obj(a, hP)
+    dhA[1] = obj(a, hA[1])
+    a11 = dAlpha / gamma(alpha + 2)
+    hP = dAlpha * bj[1] * dhA[1]
+    hA[2] = a11 * alpha * dhA[1] + a11 * obj(a, hP)
     dhA[2] = obj(a, hA[2])
-    # ------
-
-    k0 = 1:(n-1)
-    a0 = @. (DELTA^alpha) / gamma(alpha + 2) * (k0^(alpha + 1) - (k0 - alpha) * (k0 + 1)^alpha)
-    q = 0:(n-1)
-    aj = @. (DELTA^alpha) / gamma(alpha + 2) * ((q + 2)^(alpha + 1) + (q)^(alpha + 1) - 2 * (q + 1)^(alpha + 1))
-    r = 0:n
-    bj = @. (DELTA^alpha) / gamma(alpha + 1) * ((r + 1)^alpha - (r)^alpha)
-
-    akp1 = (DELTA^alpha) / gamma(alpha + 2)
-    f[1] = obj(a, hA[1])
-
-    for k = 1:(n-1)
-        f[k+1] = obj(a, hA[k+1])
-        hP = sum(f[1:k+1] .* bj[(k+1):-1:1])
-        aA = vcat(a0[k], aj[k:-1:1])
-        hA[k+2] = sum(f[1:k+1] .* aA) + akp1 * obj(a, hP)
+    @inbounds for k = 1:(n-1)
+        hP = zero(E)
+        for j = 1:k+1
+            hP += dhA[j] * bj[k+2-j]
+        end
+        hC = dhA[1] * a0[k]
+        for j = 2:k+1
+            hC += dhA[j] * aj[k+2-j]
+        end
+        hA[k+2] = dAlpha * hC + a11 * obj(a, dAlpha * hP)
         dhA[k+2] = obj(a, hA[k+2])
     end
     return dhA

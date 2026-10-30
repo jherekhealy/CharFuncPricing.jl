@@ -8,6 +8,7 @@ struct DefaultCharFunc{MT,CR} <: CharFunc{MT,CR} #model type, return type (e.g. 
 end
 
 @inline model(cf::DefaultCharFunc) = cf.model
+Base.broadcastable(cf::CharFunc) = Ref(cf)
 @inline oneim(cf::CharFunc) = 1im
 @inline oneim(cf::CharFunc{MT,Complex{T}}) where {MT,T} = 1im
 @inline oneim(cf::CharFunc{MT,Complex}) where {MT} = 1im
