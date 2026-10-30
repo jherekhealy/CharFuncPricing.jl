@@ -49,3 +49,15 @@ using CharFuncPricing, Test
         @test isapprox(priceEuropean(pricer, false, k, forward, τ, df), priceEuropean(pricerCos, false, k, forward, τ, df), atol=1e-9)
     end
 end
+
+@testset "FilonFlinnLowStrikes" begin
+    #strikes below the forward give negative Filon/Flinn angles, the small-angle expansion must use |θ|
+    cf = DefaultCharFunc(HestonParams(0.04, 0.5, 0.04, -0.9, 1.0))
+    τ = 10.0
+    refPricer = ALCharFuncPricer(cf, n=400)
+    strikes = [5.0, 20.0, 50.0]
+    refPrices = [priceEuropean(refPricer, false, k, 100.0, τ, 1.0) for k in strikes]
+    for pricer in [AdaptiveFlinnCharFuncPricer(cf, τ, qTol=1e-10), AdaptiveFilonCharFuncPricer(cf, τ, qTol=1e-10)]
+        @test isapprox([priceEuropean(pricer, false, k, 100.0, τ, 1.0) for k in strikes], refPrices, atol=1e-5)
+    end
+end

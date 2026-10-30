@@ -300,7 +300,7 @@ function belowFilonThreshold(theta::T)::Bool where {T}
 end
 
 function belowFilonThreshold(theta::Float64)::Bool
-    return theta <= 1.0 / 6.0
+    return abs(theta) <= 1.0 / 6.0
 end
 
 @inline function computeFilonParams(theta::T) where {T}

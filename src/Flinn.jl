@@ -291,7 +291,7 @@ function belowFlinnThreshold(theta::T)::Bool where {T}
 end
 
 function belowFlinnThreshold(theta::Float64)::Bool
-    return theta <= 0.8
+    return abs(theta) <= 0.8
 end
 
 @inline function computeMNPQRS(theta::T) where {T}
