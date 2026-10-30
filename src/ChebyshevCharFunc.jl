@@ -28,9 +28,7 @@ function CharFuncPricing.evaluateLogCharFunc(p::ChebyshevCharFunc{CF,MT,CR}, z::
     end
     cheb2interp(p.coeff, real(z), 0.0, p.upperBound)
 end
-function CharFuncPricing.getControlVariance(p::ChebyshevCharFunc, τ::T) where {T}
-    return getControlVariance(p.delegate, τ)
-end
+getControlVariance(p::ChebyshevCharFunc) = getControlVariance(p.delegate)
 
 @inline CharFuncPricing.model(cf:: ChebyshevCharFunc{ T} ) where {T} = CharFuncPricing.model(cf.delegate)
 

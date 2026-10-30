@@ -139,18 +139,5 @@ function priceEuropean(
         end
         integral += real(h * cis(-ω * p.centers[i]) * s)
     end
-    callPrice = -discountDf * sqrt(strike * forward) / p.pi * integral
-    if p.vControl != 0
-        #use control variate
-        sqrtVar = sqrt(p.vControl * p.τ)
-        d1 = log(forward / strike) / sqrtVar + sqrtVar / 2
-        d2 = d1 - sqrtVar
-        callPrice += discountDf * (forward * normcdf(d1) - strike * normcdf(d2))
-    else
-        callPrice += discountDf * forward
-    end
-    if isCall
-        return callPrice
-    end
-    return callPrice - (forward - strike) * discountDf
+    return lewisPrice(isCall, integral, strike, forward, p.τ, discountDf, p.vControl, p.pi)
 end

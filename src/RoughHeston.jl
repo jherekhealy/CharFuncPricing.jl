@@ -39,16 +39,13 @@ end
 
 PadeCharFunc{MT,CR,ORDER}(model::MT, q::Q) where {MT,CR,ORDER,Q} = PadeCharFunc{MT,CR,ORDER,Q}(model, q)
 PadeCharFunc{CR}(model::MT, q=FejerQuadrature{Float64}(24)) where {MT,CR} = PadeCharFunc{MT,CR,3}(model, q) #
-PadeCharFunc(model::RoughHestonParams{Float64}) = PadeCharFunc{Complex}(model)
+PadeCharFunc(model::RoughHestonParams{T}) where {T} = PadeCharFunc{Complex{T}}(model)
 
 
 @inline model(cf::PadeCharFunc) = cf.model
 
 @inline function evaluateCharFunc(p::CharFunc{RoughHestonParams{T},CR}, z::CT, τ::T)::CR where {T,CR,CT}
     return exp(evaluateLogCharFunc(p, z, τ))
-end
-function getControlVariance(p::PadeCharFunc{RoughHestonParams{T},CR,ORDER}, τ::T) where {T,CR,ORDER}
-    return zero(T)
 end
 
 function evaluateLogCharFunc(p::PadeCharFunc{RoughHestonParams{T},CR,3}, z::CT, τ::T) where {T,CR,CT}
@@ -108,7 +105,7 @@ struct AdamsCharFunc{MT,CR} <: CharFunc{MT,CR} #model type, return type (e.g. Co
 end
 
 AdamsCharFunc{CR}(model::MT, n::Int) where {MT,CR} = AdamsCharFunc{MT,CR}(model, n) #
-AdamsCharFunc(model::RoughHestonParams{Float64}, n::Int=200) = AdamsCharFunc{Complex}(model, n)
+AdamsCharFunc(model::RoughHestonParams{T}, n::Int=200) where {T} = AdamsCharFunc{Complex{T}}(model, n)
 
 @inline model(cf::AdamsCharFunc) = cf.model
 
@@ -120,16 +117,7 @@ RoughHestonCVCharFunc(delegate::Union{AdamsCharFunc{RoughHestonParams{T},CR},Pad
         ),
     )
 
-@inline function getControlVariance(
-        cf::CVCharFunc{RoughHestonParams{T},BlackParams{T}},
-        τ::T,
-    )::T where {T}
-      model(cf).varianceCurve(zero(T))
-end
 
-function getControlVariance(p::AdamsCharFunc{RoughHestonParams{T},CR}, τ::T) where {T,CR}
-    return zero(T)
-end
 
 function evaluateLogCharFunc(p::AdamsCharFunc{RoughHestonParams{T},CR}, z::CT, τ::T) where {T,CR,CT}
     #φ(0) = φ(-i) = 1 (martingale)

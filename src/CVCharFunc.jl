@@ -49,16 +49,20 @@ struct FullControlVariance <: CVKind end
 struct JoshiYangControlVariance <: CVKind end
 struct AttariControlVariance <: CVKind end
 
-struct CVCharFunc{MAINT, CONTROLT, CR} <: CharFunc{MAINT, CR}
-	main::CharFunc{MAINT, CR}
-	control::CharFunc{CONTROLT, CR}
+struct CVCharFunc{MAINT, CONTROLT, CR, MF <: CharFunc{MAINT, CR}, CF <: CharFunc{CONTROLT, CR}} <: CharFunc{MAINT, CR}
+	main::MF
+	control::CF
 end
+CVCharFunc{MAINT, CONTROLT, CR}(main::MF, control::CF) where {MAINT, CONTROLT, CR, MF <: CharFunc{MAINT, CR}, CF <: CharFunc{CONTROLT, CR}} =
+	CVCharFunc{MAINT, CONTROLT, CR, MF, CF}(main, control)
 
 model(cf::CVCharFunc) = model(cf.main)
 oneim(cf::CVCharFunc) = oneim(cf.main)
 
 
+#variance of the Black-Scholes control variate included in the characteristic function, zero when there is none.
 getControlVariance(::CharFunc{MT}) where {MT} = 0.0
+getControlVariance(cf::CharFunc, τ) = getControlVariance(cf)
 
 @inline function getControlVariance(
 	cf::CVCharFunc{MT, BlackParams{T}})::T where {MT, T}
@@ -150,4 +154,16 @@ function blackScholes(isCall::Bool, strike, forward, variance, discountDf)
 	nd2 = normcdf(sign * d2)
 	price = discountDf * sign * (forward * nd1 - strike * nd2)
 	return price
+end
+
+#Call or put price from the Lewis integral I = ∫_0^∞ Re[exp(-iu log(K/F)) φ(u - i/2)]/(u² + 1/4) du,
+#where φ may include a Black-Scholes control variate of variance vControl (zero when there is none).
+function lewisPrice(isCall::Bool, integral, strike, forward, τ, discountDf, vControl, piValue)
+    callPrice = -discountDf * sqrt(strike * forward) / piValue * integral
+    if vControl != 0
+        callPrice += blackScholes(true, strike, forward, vControl * τ, discountDf)
+    else
+        callPrice += discountDf * forward
+    end
+    return isCall ? callPrice : callPrice - (forward - strike) * discountDf
 end

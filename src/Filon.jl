@@ -134,25 +134,7 @@ function priceEuropean(
         )
         integral += integral2
     end
-    callPrice = -discountDf * sqrt(strike * forward) / p.pi * integral
-    if p.vControl != 0
-        #use control variate
-        variance = p.vControl * p.τ
-        sqrtVar = sqrt(variance)
-        d1 = log(forward / strike) / sqrtVar + sqrtVar / 2
-        d2 = d1 - sqrtVar
-        nd1 = normcdf(d1)
-        nd2 = normcdf(d2)
-        price = discountDf * (forward * nd1 - strike * nd2)
-        callPrice += price
-    else
-        callPrice += discountDf * forward
-    end
-    if isCall
-        return callPrice
-    end
-    putPrice = callPrice - (forward - strike) * discountDf
-    return putPrice
+    return lewisPrice(isCall, integral, strike, forward, p.τ, discountDf, p.vControl, p.pi)
 end
 
 #Filon with truncation: very fast, but truncation rule not always robust
@@ -294,26 +276,7 @@ function priceEuropean(
         )
         integral += integral2
     end
-    callPrice = -discountDf * sqrt(strike * forward) / p.pi * integral
-    
-    if p.vControl != 0
-        #use control variate
-        variance = p.vControl * p.τ
-        sqrtVar = sqrt(variance)
-        d1 = log(forward / strike) / sqrtVar + sqrtVar / 2
-        d2 = d1 - sqrtVar
-        nd1 = normcdf(d1)
-        nd2 = normcdf(d2)
-        price = discountDf * (forward * nd1 - strike * nd2)
-        callPrice += price
-    else
-        callPrice += discountDf * forward
-    end
-    if isCall
-        return callPrice
-    end
-    putPrice = callPrice - (forward - strike) * discountDf
-    return putPrice
+    return lewisPrice(isCall, integral, strike, forward, p.τ, discountDf, p.vControl, p.pi)
 end
 
 

@@ -659,5 +659,3 @@ function priceDigital(
     end
     return pricePut
 end
-
-
