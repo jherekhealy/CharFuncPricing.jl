@@ -232,7 +232,7 @@ The settings favour speed over accuracy: on the Float64 example above, `:JoshiYa
 ## Rough Heston
 The rough Heston model of El Euch and Rosenbaum is parameterized by the Hurst exponent `H`, the correlation `ρ`, the vol-of-vol `ν` and the forward variance curve, a function of time. Two characteristic functions are available:
 - `PadeCharFunc(params)`, the Padé (3,3) approximation of Gatheral and Radoičić, integrated in time with a Fejér quadrature (`PadeCharFunc{Complex}(params, FejerQuadrature(64))` for more points). It requires `H < 1/2`.
-- `AdamsCharFunc(params, n)`, the fractional Adams scheme on `n` time steps, slower but converging to the exact solution.
+- `AdamsCharFunc(params, n)`, the fractional Adams scheme of Diethelm, Ford and Freed on `n` time steps, slower but converging to the exact solution, with an error of order `1 + α = H + 3/2` in the time step. `AdamsCharFunc(params, n, richardson=true)` extrapolates from `n` and `2n` steps. The explicit scheme is not finite for large `u` (beyond `u ≈ 7.5 √n` for the example below): the FCC and Joshi-Yang pricers handle this, the Cos method and the adaptive Filon quadrature do not.
 
 The cumulants are not available, the Cos method thus requires an explicit truncation range:
 ```julia
@@ -241,7 +241,7 @@ params = RoughHestonParams(0.1, -0.65, 0.3, t -> 0.025)
 pricer = makeCosCharFuncPricer(PadeCharFunc(params), 1.0, 256, -6.0, 6.0)
 prices = [priceEuropean(pricer, true, k, 1.0, 1.0, 1.0) for k in [0.9, 1.0, 1.1]]
 ```
-The result is `[0.12391243781049857, 0.04985891958466849, 0.010398774983298054]`, while the Adams scheme with 500 steps leads to `[0.12379320292834749, 0.049898122969885064, 0.010718996628066607]`.
+The result is `[0.12391243781049857, 0.04985891958466849, 0.010398774983298054]`, while the Adams scheme with 500 steps leads to `[0.1237623825975548, 0.049830724715183274, 0.010657003023154768]`. The characteristic function is expensive to evaluate, and `FCCCharFuncPricer(AdamsCharFunc(params, 500), 1.0, qTol=1e-10)` needs fewer evaluations for an accurate price, `[0.1237596731157109, 0.0498327919993613, 0.010664364715242014]`, without a truncation range to choose.
 
 `RoughHestonCVCharFunc(cf)` adds a Black-Scholes control variate, to be used with the Fourier integral pricers such as `AdaptiveFilonCharFuncPricer`.
 
