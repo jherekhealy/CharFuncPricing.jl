@@ -29,6 +29,7 @@ function FCCCharFuncPricer(
     dyadic::Bool=true, #initial panels [0,1], [1,2], [2,4], ..., [b/2,b], otherwise nInitial equal panels
     nInitial::Int=4,
     maxDepth::Int=30,
+    maxEvaluations::Int=100_000,
 ) where {MAINT,CR,T}
     iPure = oneim(p)
     gRaw = function (u)
@@ -66,6 +67,9 @@ function FCCCharFuncPricer(
         c = (a1 + b1) / 2
         h = (b1 - a1) / 2
         values = [g(node(a1, b1, c, h, tNodes[j+1], j, N)) for j = 0:N]
+        if !all(isfinite, values)
+            throw(DomainError(b1, string("the characteristic function is not finite on [", a1, ", ", b1, "], use a smaller truncation b")))
+        end
         coeff = C1 * values
         level = 1
         resolved = isResolved(coeff, values, h)
@@ -75,9 +79,16 @@ function FCCCharFuncPricer(
             for j = 2:2:2N
                 values2[j] = g(node(a1, b1, c, h, tNodes2[j], j - 1, 2N))
             end
+            if !all(isfinite, values2)
+                throw(DomainError(b1, string("the characteristic function is not finite on [", a1, ", ", b1, "], use a smaller truncation b")))
+            end
             coeff = C2 * values2
             level = 2
             resolved = isResolved(coeff, values2, h)
+        end
+        if !resolved && length(cache) >= maxEvaluations
+            @warn "FCC: maximum number of evaluations reached, the tolerance may not be met" maxEvaluations
+            resolved = true
         end
         if resolved || depth >= maxDepth
             push!(centers, c)
@@ -116,9 +127,18 @@ function fccRule(::Type{T}, N::Int) where {T}
 end
 
 #power of two b beyond which the integrand tail is negligible (checked on two consecutive points, as the integrand may oscillate).
+#Stops at the last point where the integrand is finite (e.g. explicit numerical schemes for the characteristic function).
 function fccTruncation(g, tol::T) where {T}
     b = one(T)
-    while b < T(1e8) && (abs(g(b)) * b > tol || abs(g(2b)) * 2b > tol)
+    while b < T(1e8)
+        g1, g2 = g(b), g(2b)
+        if !isfinite(g2)
+            @warn "FCC: the characteristic function is not finite beyond u = $b, truncating there"
+            return b
+        end
+        if abs(g1) * b <= tol && abs(g2) * 2b <= tol
+            break
+        end
         b *= 2
     end
     return 2b

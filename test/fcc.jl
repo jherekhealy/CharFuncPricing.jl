@@ -61,3 +61,15 @@ end
         @test isapprox([priceEuropean(pricer, false, k, 100.0, τ, 1.0) for k in strikes], refPrices, atol=1e-5)
     end
 end
+
+@testset "FCCNonFinite" begin
+    #the Adams scheme with few steps is not finite for large u: FCC must stop the truncation there, and not hang
+    params = RoughHestonParams(0.1, -0.65, 0.3, s -> 0.025)
+    cfa = AdamsCharFunc(params, 100)
+    pricer = @test_logs (:warn,) match_mode = :any FCCCharFuncPricer(cfa, 1.0, qTol=1e-8)
+    @test pricer.b <= 256
+    pricePade = priceEuropean(FCCCharFuncPricer(PadeCharFunc(params), 1.0, qTol=1e-10), true, 1.0, 1.0, 1.0, 1.0)
+    @test isapprox(priceEuropean(pricer, true, 1.0, 1.0, 1.0, 1.0), pricePade, atol=1e-3)
+    #explicit truncation in the non-finite region
+    @test_throws DomainError FCCCharFuncPricer(cfa, 1.0, b=4096.0)
+end
