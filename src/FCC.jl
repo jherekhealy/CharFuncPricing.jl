@@ -41,8 +41,8 @@ function FCCCharFuncPricer(
     if b == zero(T)
         b = fccTruncation(g, qTol)
     end
-    tNodes = [cospi(T(j) / N) for j = 0:N]
-    tNodes2 = [cospi(T(j) / (2N)) for j = 0:2N]
+    rule = fccRule(T, N)
+    tNodes, tNodes2, C1, C2 = rule.tNodes, rule.tNodes2, rule.C1, rule.C2
     #Clenshaw-Curtis nodes of [a1, b1], the end and mid points exactly
     node(a1, b1, c, h, t, j, n) = j == 0 ? b1 : (j == n ? a1 : (2j == n ? c : c + h * t))
     centers = T[]
@@ -66,7 +66,7 @@ function FCCCharFuncPricer(
         c = (a1 + b1) / 2
         h = (b1 - a1) / 2
         values = [g(node(a1, b1, c, h, tNodes[j+1], j, N)) for j = 0:N]
-        coeff = chebCoefficientsFromValues(values)
+        coeff = C1 * values
         level = 1
         resolved = isResolved(coeff, values, h)
         if !resolved && hp
@@ -75,7 +75,7 @@ function FCCCharFuncPricer(
             for j = 2:2:2N
                 values2[j] = g(node(a1, b1, c, h, tNodes2[j], j - 1, 2N))
             end
-            coeff = chebCoefficientsFromValues(values2)
+            coeff = C2 * values2
             level = 2
             resolved = isResolved(coeff, values2, h)
         end
@@ -89,19 +89,31 @@ function FCCCharFuncPricer(
             push!(stack, (a1, c, depth + 1))
         end
     end
-    xGL = Vector{Vector{T}}(undef, 2)
-    tGL = Vector{Matrix{T}}(undef, 2)
-    wGL = Vector{Vector{T}}(undef, 2)
-    for (l, n) in enumerate((N, 2N))
-        x, w = gausslegendre(2n + 16)
-        xGL[l], wGL[l] = T.(x), T.(w)
-        tGL[l] = [cos(k * acos(xi)) for xi in xGL[l], k = 0:n]
-    end
-    wvGL = [wGL[l] .* (tGL[l] * coeff) for (coeff, l) in zip(coeffList, levels)]
-    return FCCCharFuncPricer{T,VT}(τ, b, centers, halfWidths, coeffList, levels, T(getControlVariance(p)), const_pi(p), xGL, wvGL)
+    wvGL = [rule.wtGL[l] * coeff for (coeff, l) in zip(coeffList, levels)]
+    return FCCCharFuncPricer{T,VT}(τ, b, centers, halfWidths, coeffList, levels, T(getControlVariance(p)), const_pi(p), rule.xGL, wvGL)
 end
 
 Base.broadcastable(p::FCCCharFuncPricer) = Ref(p)
+
+#Clenshaw-Curtis points and coefficient matrices for degrees N and 2N, Gauss-Legendre nodes and (weights times Chebyshev
+#polynomials at the nodes) for each degree. They do not depend on the model and are computed once per (T, N).
+const FCC_RULES = Dict{Tuple{DataType,Int},Any}()
+const FCC_RULES_LOCK = ReentrantLock()
+function fccRule(::Type{T}, N::Int) where {T}
+    lock(FCC_RULES_LOCK) do
+        get!(FCC_RULES, (T, N)) do
+            xGL = Vector{Vector{T}}(undef, 2)
+            wtGL = Vector{Matrix{T}}(undef, 2)
+            for (l, n) in enumerate((N, 2N))
+                x, w = gausslegendre(2n + 16)
+                xGL[l] = T.(x)
+                wtGL[l] = T.(w) .* [cos(k * acos(xi)) for xi in xGL[l], k = 0:n]
+            end
+            (tNodes=[cospi(T(j) / N) for j = 0:N], tNodes2=[cospi(T(j) / (2N)) for j = 0:2N],
+                C1=chebCoefficientMatrix(T, N), C2=chebCoefficientMatrix(T, 2N), xGL=xGL, wtGL=wtGL)
+        end
+    end::NamedTuple{(:tNodes, :tNodes2, :C1, :C2, :xGL, :wtGL),Tuple{Vector{T},Vector{T},Matrix{T},Matrix{T},Vector{Vector{T}},Vector{Matrix{T}}}}
+end
 
 #power of two b beyond which the integrand tail is negligible (checked on two consecutive points, as the integrand may oscillate).
 function fccTruncation(g, tol::T) where {T}
@@ -112,20 +124,16 @@ function fccTruncation(g, tol::T) where {T}
     return 2b
 end
 
-#Chebyshev coefficients of the interpolant at the points cos(jπ/N), j=0..N.
-function chebCoefficientsFromValues(values::AbstractVector)
-    N = length(values) - 1
-    coeff = similar(values)
-    for k = 0:N
-        s = (values[1] + values[N+1] * (-1)^k) / 2
-        for j = 1:N-1
-            s += values[j+1] * cospi(j * k / N)
-        end
-        coeff[k+1] = 2 * s / N
+#matrix mapping the values at the points cos(jπ/N), j=0..N, to the Chebyshev coefficients of the interpolant (DCT-I).
+function chebCoefficientMatrix(::Type{T}, N::Int) where {T}
+    C = zeros(T, N + 1, N + 1)
+    for k = 0:N, j = 0:N
+        w = (j == 0 || j == N) ? one(T) / 2 : one(T)
+        C[k+1, j+1] = 2 * w * cospi(T(j * k) / N) / N
     end
-    coeff[1] /= 2
-    coeff[N+1] /= 2
-    return coeff
+    C[1, :] ./= 2
+    C[N+1, :] ./= 2
+    return C
 end
 
 #moments M_k = ∫_{-1}^{1} T_k(t) exp(iκt) dt, k=0..N, by forward recurrence, stable for N <= |κ|.
