@@ -64,7 +64,7 @@ function priceEuropean(
     if x >= -p.a && x >= p.b
         pricePut = 0
     elseif x <= p.a || x <= -p.b
-        pricePut = discountDf
+        pricePut = discountDf * (strike - forward)
     else
         uk = p.uk
         a = p.a
@@ -96,7 +96,7 @@ function priceEuropean(
         pricePut = discountDf * (strike*sumPut - forward*sumPutF)
     end
     if isCall
-        return (pricePut +forward-strike)* discountDf
+        return pricePut + discountDf * (forward - strike)
     end
     return pricePut
 end

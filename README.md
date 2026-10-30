@@ -2,23 +2,49 @@
 
 | Status | Coverage |
 | :----: | :----: |
-| ![Build Status](https://github.com/jherekhealy/CharFuncPricing.jl/actions/workflows/julia-runtests.yml/badge.svg) | [![codecov.io](http://codecov.io/github/jherekhealy/CharFuncPricing.jl/coverage.svg?branch=master)](http://codecov.io/github/jherekhealy/CharFuncPricing.jl?branch=master) |
+| ![Build Status](https://github.com/jherekhealy/CharFuncPricing.jl/actions/workflows/julia-runtests.yml/badge.svg) | [![codecov.io](https://codecov.io/github/jherekhealy/CharFuncPricing.jl/coverage.svg?branch=master)](https://codecov.io/github/jherekhealy/CharFuncPricing.jl?branch=master) |
 
+Julia package to provide reference European option prices for stochastic volatility models with a known characteristic function, such as the Heston stochastic volatility model.
 
+The code is not meant for production purpose and does not always cater for corner cases. It however supports arbitrary precision via BigFloat or the Nemo package, and automatic differentiation via ForwardDiff.
 
-Julia package to provide reference European option prices for stochastic volatility models with a known characteristic function, such as the Heston stochastic volatility model. For the Heston and Schobel-Zhu models, a function provides the first, second and fourth cumulants through analytical formulas.
+### Models
+| Model | Parameters | Characteristic function |
+| :---- | :---- | :---- |
+| Heston | `HestonParams(v0, κ, θ, ρ, σ)` | `DefaultCharFunc(params)` |
+| Heston with piecewise-constant parameters | `HestonTSParams` | `DefaultCharFunc(params)` |
+| Double Heston | `DoubleHestonParams(heston1, heston2)` | `DefaultCharFunc(params)` |
+| Schöbel-Zhu (and with term-structure) | `SchobelZhuParams`, `SchobelZhuTSParams` | `DefaultCharFunc(params)` |
+| Stochastic volatility with correlated jumps | `SVCJParams` | `DefaultCharFunc(params)` |
+| CGMY, Variance Gamma | `CGMYParams`, `VarianceGammaParams` | `DefaultCharFunc(params)` |
+| Rough Heston | `RoughHestonParams(H, ρ, ν, varianceCurve)` | `PadeCharFunc(params)`, `AdamsCharFunc(params, n)` |
 
-The code is not meant for production purpose and does not always cater for corner cases. It however supports arbitrary precision via the Nemo package.
+For the Heston and Schöbel-Zhu models, `computeCumulants(params, τ)` provides the first, second and fourth cumulants through analytical formulas (for Heston with small `κτ`, a numerically stable ODE solution is used instead of the closed form).
+
+### Pricers
+| Method | Constructor |
+| :---- | :---- |
+| Cos (Fang-Oosterlee), cumulants truncation | `makeCosCharFuncPricer(cf, τ, m, l)` |
+| Cos on an explicit interval `[a, b]` | `makeCosCharFuncPricer(cf, τ, m, a, b)` |
+| Cos with automatic truncation and number of terms (Junike) | `makeCosCharFuncPricer(cf, τ, tol=1e-8)` |
+| Andersen-Lake contour integration | `ALCharFuncPricer(cf)` |
+| Adaptive Flinn / Filon quadratures | `AdaptiveFlinnCharFuncPricer(cf, τ)`, `AdaptiveFilonCharFuncPricer(cf, τ)` |
+| Joshi-Yang with Black-Scholes control variate | `JoshiYangCharFuncPricer(cf, τ)` |
+| Swift (Shannon wavelets) | `CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, m, k)` |
+| Cos variants: FFT/NFFT on many strikes, Lipton, damped (α), Gil-Pelaez | `CosFFTCharFuncPricer`, `makeCosLiptonCharFuncPricer`, `makeCosAlphaCharFuncPricer`, `CharFuncPricing.makeCosGPCharFuncPricer` |
+
+All pricers are used through `priceEuropean(pricer, isCall, strike, forward, τ, discountDf)`.
 
 ## Installation
 
 In a Julia REPL, enter `pkg` mode (by pressing `]`) and run:
 
 ```julia
-(v1.0) pkg> add CharFuncPricing
+pkg> add CharFuncPricing
 ```
 
-[Julia](https://julialang.org) version 1.2 or higher is required.
+[Julia](https://julialang.org) version 1.10 or higher is required.
+
 ## Cos method
 ### Float64 Usage
 
@@ -31,7 +57,7 @@ params = HestonParams(v0, κ, θ, ρ, σ)
 Then make a `CosCharFuncPricer` structure via `makeCosCharFuncPricer`. This function will store the relevant `m` values of the characteristic function for the range [a,b] defined by `l` deviations using the cumulants rule `a = c1 - l * sqrt(c2+sqrt(c4))`, `b = c1 + l * sqrt(c2+sqrt(c4))`.
 ```julia
 cf = DefaultCharFunc(params)
-pricer = makeCosCharFuncPricer(cf, τ, m, l)  
+pricer = makeCosCharFuncPricer(cf, τ, m, l)
 ```
 
 And price vanilla call and puts of a given strike as following
@@ -45,6 +71,11 @@ The first, second and fourth cumulants are given by
 c1,c2,c4 = computeCumulants(params, τ)
 ```
 
+Alternatively, the truncation range and the number of terms may be determined automatically for a given tolerance, following Junike (2024):
+```julia
+pricer = makeCosCharFuncPricer(cf, τ, tol=1e-8)
+```
+
 ### Nemo Usage
 The only difference is to make sure the parameters are of ArbField type (real arbitrary precision), the function `makeCosCharFuncPricer` should also be called on the AcbField type.
 ```julia
@@ -54,7 +85,6 @@ CC = AcbField(256)
 cf = NemoCharFunc{HestonParams{arb}}(params, CC)
 pricer = makeCosCharFuncPricer(cf, τ, m, l)
 ```
-
 
 ### Float64 Example
 Here is how to price a put option with parameters
@@ -73,8 +103,6 @@ priceEuropean(pricer, false, strike, spot, τ, df)
 ```
 
 The result is `7.95887811325676`.
-  
-```
 
 ### Nemo Example
 ```julia
@@ -145,7 +173,7 @@ With a quadrature tolerance of 1e-8:
 pricer = AdaptiveFlinnCharFuncPricer(cf, τ, qTol = 1e-8)
 priceEuropean(pricer, false, strike, spot, τ, df)
 ```
-The result is `7.958878112874899`
+The result is `7.958878080086734`.
 
 ### BigFloat Example
 The adaptive Flinn pricer works with high accuracy, but does not perform very well then. It is more intended for the calculation of prices with a absolute error tolerance of around 1e-8 or 1e-10.
@@ -161,7 +189,7 @@ The result is
 
 
 ## Joshi-Yang integration
-A direct implementation of Joshi-Yang pricing with a Black-Scholes control variate integrated along the real axis combined with a Gauss-Laguerre integration is given. 
+A direct implementation of Joshi-Yang pricing with a Black-Scholes control variate integrated along the real axis combined with a Gauss-Laguerre integration is given.
 
 ```julia
 using CharFuncPricing
@@ -169,9 +197,9 @@ cf = DefaultCharFunc(HestonParams(0.04, 0.5, 0.04, -0.9, 1.0))
 T= 10.0
 pricer = JoshiYangCharFuncPricer(cf,T, n=10)
 strikes = [8000.0, 10000.0, 12000.0]
-prices = map(x->priceEuropean(pricer,x >= 10000.0, x, 10000.0,T,1.0) ,strikes)  
+prices = map(x->priceEuropean(pricer,x >= 10000.0, x, 10000.0,T,1.0) ,strikes)
 ```
-The output reads 
+The output reads
 `772.0090642032833
 1308.1993158318369
 290.12673794349496
@@ -180,6 +208,30 @@ which is in-line with the prices reported in Table 4.2 of the paper.
 
 While it is accurate at or around the money in general, for a small number of integration points, this is not always accurate for long-term deals. Furthermore, for long-term deals, the control variate volatility may *"explode"*. A counter-example is  `T=30.0, HestonParams{Float64}(1.0, 0.5, 1.0, 0.95, 1.0)`.
 
+## Choosing a pricer by name
+`makeCharFuncPricer(method, cf, τ)` builds a pricer with settings suited to fast calibration, where `method` is one of `:AndersenLake`, `:JoshiYang`, `:Flinn`, `:FlinnTransformed`, `:Swift`, `:Cos`, `:Cos128`, `:CosJunike` (a string such as `"Joshi-Yang"` is also accepted). Other packages may add their own methods by extending `makeCharFuncPricer(::Val{:Name}, cf, τ)`.
+
+```julia
+pricer = makeCharFuncPricer(:JoshiYang, cf, τ)
+priceEuropean(pricer, false, strike, spot, τ, df)
+```
+The settings favour speed over accuracy: on the Float64 example above, `:JoshiYang` and `:Cos` are accurate to 1e-13, while `:Flinn` (with a time tolerance of 1e-4) is only accurate to 5e-4.
+
+## Rough Heston
+The rough Heston model of El Euch and Rosenbaum is parameterized by the Hurst exponent `H`, the correlation `ρ`, the vol-of-vol `ν` and the forward variance curve, a function of time. Two characteristic functions are available:
+- `PadeCharFunc(params)`, the Padé (3,3) approximation of Gatheral and Radoičić, integrated in time with a Fejér quadrature (`PadeCharFunc{Complex}(params, FejerQuadrature(64))` for more points). It requires `H < 1/2`.
+- `AdamsCharFunc(params, n)`, the fractional Adams scheme on `n` time steps, slower but converging to the exact solution.
+
+The cumulants are not available, the Cos method thus requires an explicit truncation range:
+```julia
+using CharFuncPricing
+params = RoughHestonParams(0.1, -0.65, 0.3, t -> 0.025)
+pricer = makeCosCharFuncPricer(PadeCharFunc(params), 1.0, 256, -6.0, 6.0)
+prices = [priceEuropean(pricer, true, k, 1.0, 1.0, 1.0) for k in [0.9, 1.0, 1.1]]
+```
+The result is `[0.12391243781049857, 0.04985891958466849, 0.010398774983298054]`, while the Adams scheme with 500 steps leads to `[0.12379320292834749, 0.049898122969885064, 0.010718996628066607]`.
+
+`RoughHestonCVCharFunc(cf)` adds a Black-Scholes control variate, to be used with the Fourier integral pricers such as `AdaptiveFilonCharFuncPricer`.
 
 ## Stochastic volatility with correlated jumps (SVCJ)
 A straightforward (but not necessarily efficient) implementation of the SVCJ characteristic function of Duffie, Pan & Singleton is available and may be used with Cos, JoshiYang or AdaptiveFilon pricers.
@@ -191,7 +243,7 @@ params = SVCJParams(hestonParams, 0.47, -0.1, 0.0001^2, 0.05, -0.38) #from Broad
 df = exp(-0.0319)
 cf = DefaultCharFunc(params)
 pricerCos = CharFuncPricing.makeCosCharFuncPricer(cf,1.0,1024,16)
-price = priceEuropean(pricerCos,true, 100.0, 100.0/df,1.0,df)   
+price = priceEuropean(pricerCos,true, 100.0, 100.0/df,1.0,df)
 ```
 
 The result reads `6.861875621424775` while the reference from Broadie & Kaya is 6.8619.
@@ -202,23 +254,32 @@ In a Julia REPL session, enter `pkg` mode and run `test CharFuncPricing`.
 
 Unit tests verify the call and put option prices against the [reference prices](https://financepress.com/2019/02/15/heston-model-reference-prices/) of Alan Lewis in double and arbitrary precision. In fact, the implementation here gives more precise results (minimum accuracy of 1e-60 while Alan Lewis numbers are only accurate up to 1e-25).
 
-Cumulants are checked against a Taylor series algorithmic differentiation.
+Cumulants are checked against a Taylor series algorithmic differentiation. The rough Heston characteristic functions are checked against the Heston limit `H = 1/2` and against each other.
 
 ## References
 Andersen, L.B.G. and Lake, M. (2018) "Robust high-precision option pricing by
 Fourier transforms: Contour deformations and double-exponential quadrature"(SSRN 3231626)
 
-Broadie, M. and Kaya, 0. (2006) [Exact simulation of stochastic volatility and other affine jump diffusion processes](https://www.researchgate.net/publication/220243902_Exact_Simulation_of_Stochastic_Volatility_and_Other_Affine_Jump_Diffusion_Processes)
+Broadie, M. and Kaya, O. (2006) [Exact simulation of stochastic volatility and other affine jump diffusion processes](https://www.researchgate.net/publication/220243902_Exact_Simulation_of_Stochastic_Volatility_and_Other_Affine_Jump_Diffusion_Processes)
+
+Diethelm, K., Ford, N. J. and Freed, A. D. (2002) "A predictor-corrector approach for the numerical solution of fractional differential equations", Nonlinear Dynamics 29
 
 Duffie, D. Pan, J. and Singleton, K.(2000) [Transform Analysis and Asset Pricing for Affine Jump-Diffusion](https://www.darrellduffie.com/uploads/pubs/DuffiePanSingleton2000.pdf)
 
+El Euch, O. and Rosenbaum, M. (2019) "The characteristic function of rough Heston models", Mathematical Finance 29(1)
+
 Fang, F. and Oosterlee, C. W. (2008) [A novel pricing method for European options based on Fourier-cosine series expansions](https://epubs.siam.org/doi/abs/10.1137/080718061)
 
-Joshi, M. and Yang, C. (2011) [Fourier transforms, option pricing and controls](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1941464)
+Gatheral, J. and Radoičić, R. (2019) "Rational approximation of the rough Heston solution", International Journal of Theoretical and Applied Finance 22(3)
 
 Healy, J. (2021) [Applied Quantitative Finance for Equity Derivatives](https://jherekhealy.github.io/)
 
+Joshi, M. and Yang, C. (2011) [Fourier transforms, option pricing and controls](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1941464)
+
+Junike, G. (2024) "On the number of terms in the COS method for European option pricing", Numerische Mathematik
+
 Le Floc'h, F. (2018) [More Robust Pricing of European Options Based on Fourier Cosine Series Expansions](https://arxiv.org/abs/2005.13248)
 
-Le Floc'h, F. (2020) [An adaptive Filon quadrature for stochastic volatility
-models]()
+Le Floc'h, F. (2020) "An adaptive Filon quadrature for stochastic volatility models"
+
+Ortiz-Gracia, L. and Oosterlee, C. W. (2016) "A highly efficient Shannon wavelet inverse Fourier technique for pricing European options", SIAM Journal on Scientific Computing 38(1)
