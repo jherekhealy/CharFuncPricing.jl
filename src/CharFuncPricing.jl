@@ -43,5 +43,6 @@ include("AndersenLake.jl")
 include("JoshiYang.jl")
 include("Swift.jl")
 include("ChebyshevCharFunc.jl")
+include("FCC.jl")
 include("PricerFactory.jl")
 end

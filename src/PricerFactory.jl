@@ -1,5 +1,10 @@
 export makeCharFuncPricer, pricerMethod
 
+#Prices for many strikes. Pricers may specialize this method when they can share work across strikes (e.g. CosFFTCharFuncPricer).
+function priceEuropean(p, isCalls::AbstractArray{Bool}, strikes::AbstractArray, forward, τ, discountDf)
+    return map((isCall, strike) -> priceEuropean(p, isCall, strike, forward, τ, discountDf), isCalls, strikes)
+end
+
 #accepts symbols or strings, with the older hyphenated names, e.g. "Joshi-Yang" for :JoshiYang
 pricerMethod(method) = Val(Symbol(replace(string(method), "-" => "")))
 
@@ -31,4 +36,7 @@ function makeCharFuncPricer(::Val{:Cos128}, cf, t)
 end
 function makeCharFuncPricer(::Val{:CosJunike}, cf, t)
     makeCosCharFuncPricer(cf, t, tol=1e-4, maxM=4096)
+end
+function makeCharFuncPricer(::Val{:FCC}, cf, t)
+    FCCCharFuncPricer(cf, t, qTol=1e-8)
 end

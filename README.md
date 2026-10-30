@@ -30,10 +30,11 @@ For the Heston and Schöbel-Zhu models, `computeCumulants(params, τ)` provides 
 | Andersen-Lake contour integration | `ALCharFuncPricer(cf)` |
 | Adaptive Flinn / Filon quadratures | `AdaptiveFlinnCharFuncPricer(cf, τ)`, `AdaptiveFilonCharFuncPricer(cf, τ)` |
 | Joshi-Yang with Black-Scholes control variate | `JoshiYangCharFuncPricer(cf, τ)` |
-| Swift (Shannon wavelets) | `CharFuncPricing.makeSwiftCharFuncPricer(cf, τ, m, k)` |
-| Cos variants: FFT/NFFT on many strikes, Lipton, damped (α), Gil-Pelaez | `CosFFTCharFuncPricer`, `makeCosLiptonCharFuncPricer`, `makeCosAlphaCharFuncPricer`, `CharFuncPricing.makeCosGPCharFuncPricer` |
+| Adaptive Filon-Clenshaw-Curtis, efficient for many strikes | `FCCCharFuncPricer(cf, τ, qTol=1e-10)` |
+| Swift (Shannon wavelets) | `makeSwiftCharFuncPricer(cf, τ, m, k)` |
+| Cos variants: FFT/NFFT on many strikes, Lipton, damped (α), Gil-Pelaez | `CosFFTCharFuncPricer`, `makeCosLiptonCharFuncPricer`, `makeCosAlphaCharFuncPricer`, `makeCosGPCharFuncPricer` |
 
-All pricers are used through `priceEuropean(pricer, isCall, strike, forward, τ, discountDf)`.
+All pricers are used through `priceEuropean(pricer, isCall, strike, forward, τ, discountDf)`, or `priceEuropean(pricer, isCalls, strikes, forward, τ, discountDf)` for many strikes at once.
 
 ## Installation
 
@@ -208,8 +209,19 @@ which is in-line with the prices reported in Table 4.2 of the paper.
 
 While it is accurate at or around the money in general, for a small number of integration points, this is not always accurate for long-term deals. Furthermore, for long-term deals, the control variate volatility may *"explode"*. A counter-example is  `T=30.0, HestonParams{Float64}(1.0, 0.5, 1.0, 0.95, 1.0)`.
 
+## Filon-Clenshaw-Curtis
+`FCCCharFuncPricer` integrates the Lewis formula with an adaptive Filon-Clenshaw-Curtis quadrature. The integrand amplitude `φ(u - i/2)/(u² + 1/4)` is approximated on `[0, b]` by piecewise Chebyshev polynomials of degree `N` (16 by default), on panels bisected until the last Chebyshev coefficients fall below the tolerance. The panels do not depend on the strike: the oscillatory factor is integrated exactly against the polynomials (through a stable recurrence for the moments, or Gauss-Legendre where the oscillation is weak). The characteristic function is thus evaluated only when the pricer is built, and pricing an additional strike is cheap.
+
+```julia
+pricer = FCCCharFuncPricer(cf, τ, qTol = 1e-10)
+priceEuropean(pricer, false, strike, spot, τ, df)
+```
+On the Heston example of Alan Lewis, the error is below 1e-13 for a tolerance of 1e-8, while the adaptive Filon quadrature with the same tolerance has an error of 2.5e-6. The truncation `b` is the power of two beyond which the integrand is negligible, it may be given explicitly with the keyword `b`.
+
+As for the other pricers based on the Lewis formula (`α = -1/2`), it fails when `φ(-i/2)` is not finite, for example with the Variance Gamma parameters `(2.0, 1.0, 0.5)`, where the Cos method still works.
+
 ## Choosing a pricer by name
-`makeCharFuncPricer(method, cf, τ)` builds a pricer with settings suited to fast calibration, where `method` is one of `:AndersenLake`, `:JoshiYang`, `:Flinn`, `:FlinnTransformed`, `:Swift`, `:Cos`, `:Cos128`, `:CosJunike` (a string such as `"Joshi-Yang"` is also accepted). Other packages may add their own methods by extending `makeCharFuncPricer(::Val{:Name}, cf, τ)`.
+`makeCharFuncPricer(method, cf, τ)` builds a pricer with settings suited to fast calibration, where `method` is one of `:AndersenLake`, `:JoshiYang`, `:Flinn`, `:FlinnTransformed`, `:Swift`, `:Cos`, `:Cos128`, `:CosJunike`, `:FCC` (a string such as `"Joshi-Yang"` is also accepted). Other packages may add their own methods by extending `makeCharFuncPricer(::Val{:Name}, cf, τ)`.
 
 ```julia
 pricer = makeCharFuncPricer(:JoshiYang, cf, τ)
@@ -248,6 +260,14 @@ price = priceEuropean(pricerCos,true, 100.0, 100.0/df,1.0,df)
 
 The result reads `6.861875621424775` while the reference from Broadie & Kaya is 6.8619.
 
+## Benchmarks
+The folder `benchmark` contains a [BenchmarkTools](https://github.com/JuliaCI/BenchmarkTools.jl) suite (`SUITE` in `benchmark/benchmarks.jl`, compatible with PkgBenchmark) for the cumulants, the construction of the pricers and the pricing of 100 strikes. Run it with
+```
+julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'
+julia --project=benchmark benchmark/run.jl          # all groups
+julia --project=benchmark benchmark/run.jl build    # a single group
+```
+
 ## Testing
 
 In a Julia REPL session, enter `pkg` mode and run `test CharFuncPricing`.
@@ -281,5 +301,7 @@ Junike, G. (2024) "On the number of terms in the COS method for European option 
 Le Floc'h, F. (2018) [More Robust Pricing of European Options Based on Fourier Cosine Series Expansions](https://arxiv.org/abs/2005.13248)
 
 Le Floc'h, F. (2020) "An adaptive Filon quadrature for stochastic volatility models"
+
+Domínguez, V., Graham, I. G. and Smyshlyaev, V. P. (2011) "Stability and error estimates for Filon-Clenshaw-Curtis rules for highly oscillatory integrals", IMA Journal of Numerical Analysis 31(4)
 
 Ortiz-Gracia, L. and Oosterlee, C. W. (2016) "A highly efficient Shannon wavelet inverse Fourier technique for pricing European options", SIAM Journal on Scientific Computing 38(1)

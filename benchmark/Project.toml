@@ -1,0 +1,6 @@
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+CharFuncPricing = "1fb851c3-be98-478b-9657-166436d5cfc1"
+
+[sources]
+CharFuncPricing = {path = ".."}

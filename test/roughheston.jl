@@ -36,7 +36,7 @@ end
     cf = DefaultCharFunc(CharFuncPricing.HestonParams(0.04, 1.5, 0.04, -0.6, 0.5))
     τ = 1.0
     ref = priceEuropean(ALCharFuncPricer(cf, n=64), true, 1.0, 1.0, τ, 1.0)
-    for method in [:AndersenLake, :JoshiYang, :Flinn, :FlinnTransformed, :Swift, :Cos, :Cos128, :CosJunike, "Joshi-Yang"]
+    for method in [:AndersenLake, :JoshiYang, :Flinn, :FlinnTransformed, :Swift, :Cos, :Cos128, :CosJunike, :FCC, "Joshi-Yang"]
         pricer = makeCharFuncPricer(method, cf, τ)
         @test isapprox(priceEuropean(pricer, true, 1.0, 1.0, τ, 1.0), ref, atol=1e-4)
     end
