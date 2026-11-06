@@ -1,0 +1,21 @@
+# AppVeyor builds run the Julia test suite on Windows.
+# Julia itself is installed by the JuliaCI Appveyor.jl helper script.
+environment:
+  matrix:
+    - JULIA_VERSION: "1.10"
+    - JULIA_VERSION: "1"
+
+platform:
+  - x64
+
+branches:
+  only:
+    - master
+
+build: off
+
+install:
+  - ps: iex ((new-object net.webclient).DownloadString("https://raw.githubusercontent.com/JuliaCI/Appveyor.jl/version-1/bin/install.ps1"))
+
+test_script:
+  - C:\julia\bin\julia --project=. -e "using Pkg; Pkg.instantiate(); Pkg.test()"
