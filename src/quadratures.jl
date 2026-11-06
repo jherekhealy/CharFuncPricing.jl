@@ -31,7 +31,8 @@ function integrateQuinticHermite(
     b::T,
     tol::T,
     maxRecursionDepth::Int;
-    integralEstimate::T=Base.zero(T)
+    integralEstimate::T=Base.zero(T),
+    minDepth::Int=0 #panels are not accepted before minDepth bisections of the 4 initial panels: the error estimate is only meaningful on panels which are resolved
 )::T where {T}
     if tol < eps(T)
         tol = eps(T)
@@ -73,6 +74,7 @@ function integrateQuinticHermite(
             yp[3],
             yp[2],
             maxRecursionDepth,
+            maxRecursionDepth - minDepth,
         ) +
         adaptiveQuinticHermiteAux(
             f,
@@ -86,6 +88,7 @@ function integrateQuinticHermite(
             yp[5],
             yp[4],
             maxRecursionDepth,
+            maxRecursionDepth - minDepth,
         ) +
         adaptiveQuinticHermiteAux(
             f,
@@ -99,6 +102,7 @@ function integrateQuinticHermite(
             yp[7],
             yp[6],
             maxRecursionDepth,
+            maxRecursionDepth - minDepth,
         ) +
         adaptiveQuinticHermiteAux(
             f,
@@ -112,6 +116,7 @@ function integrateQuinticHermite(
             yp[9],
             yp[8],
             maxRecursionDepth,
+            maxRecursionDepth - minDepth,
         )
     return result
 end
@@ -128,6 +133,7 @@ function adaptiveQuinticHermiteAux(
     fpb::T,
     fpc::T,
     bottom::Int,
+    acceptBottom::Int,
 )::T where {T}
     c = (a + b) / 2
     h = b - a
@@ -139,7 +145,7 @@ function adaptiveQuinticHermiteAux(
     Sleft = (h / 60) * (7 * fa + 16 * fd + 7 * fc + h / 4 * (fpa - fpc))
     Sright = (h / 60) * (7 * fc + 16 * fe + 7 * fb + h / 4 * (fpc - fpb))
     i2 = Sleft + Sright
-    if ((is + (i1 - i2) / 63) == is) || (d == e)
+    if (bottom <= acceptBottom && (is + (i1 - i2) / 63) == is) || (d == e)
         return i2
     end
     if bottom <= 0
@@ -147,8 +153,8 @@ function adaptiveQuinticHermiteAux(
         return i2
     end
     result =
-        adaptiveQuinticHermiteAux(f, a, c, is, fa, fc, fd, fpa, fpc, fpd, bottom - 1) +
-        adaptiveQuinticHermiteAux(f, c, b, is, fc, fb, fe, fpc, fpb, fpe, bottom - 1)
+        adaptiveQuinticHermiteAux(f, a, c, is, fa, fc, fd, fpa, fpc, fpd, bottom - 1, acceptBottom) +
+        adaptiveQuinticHermiteAux(f, c, b, is, fc, fb, fe, fpc, fpb, fpe, bottom - 1, acceptBottom)
     return result
 end
 
@@ -183,7 +189,7 @@ const nw1_modsim = [0.1271031188518578 -0.5084124754074312 0.7626187131111468 -0
     0.3362832433427012 -0.6725664866854024 0.0 0.6725664866854024 -0.3362832433427012
     0.5684224278099782 -0.2842112139049893 -0.5684224278099774 -0.2842112139049893 0.5684224278099782
     0.6725664866854023 0.3362832433427017 0.0 -0.3362832433427017 -0.6725664866854023]
-function modsim(f, a::T, b::T, tol::T; maxRecursionDepth::Int=20)::T where {T}
+function modsim(f, a::T, b::T, tol::T; maxRecursionDepth::Int=20, integralEstimate::T=Base.zero(T))::T where {T}
     if tol < eps(T)
         tol = sqrt(eps(T))
     end
@@ -193,6 +199,7 @@ function modsim(f, a::T, b::T, tol::T; maxRecursionDepth::Int=20)::T where {T}
     h = (b - a) / 2
     c = (b + a) / 2
     x = @. c + h * p2_modsim
+    x = (a, x[2:end-1]..., b) #the exact end points, otherwise a shared end point of adjacent intervals is duplicated in the grid
     y = f.(x)
     is = Base.zero(T)
     isabs = Base.zero(T)
@@ -201,7 +208,9 @@ function modsim(f, a::T, b::T, tol::T; maxRecursionDepth::Int=20)::T where {T}
         isabs += h * abs(w2_modsim[i]) * abs(y[i])
     end
     noise = 50 * eps(T) * isabs
-    if abs(is) <= noise
+    if integralEstimate != Base.zero(T)
+        is = integralEstimate #the tolerance is relative to a known integral, when extending the range
+    elseif abs(is) <= noise
         is = b - a
     end
     tol = max(tol, noise / abs(is))
@@ -231,7 +240,7 @@ function simpr(
     fcr = y[4]
     i = Base.zero(T)
     iabs = Base.zero(T)
-    @inbounds for k = 1:length(w2_modsim)
+    @inbounds for k = 1:length(w1_modsim)
         i += h * w1_modsim[k] * y[k]
         iabs += h * abs(w1_modsim[k]) * abs(y[k])
     end

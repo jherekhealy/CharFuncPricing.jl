@@ -137,6 +137,11 @@ function priceEuropean(
     return lewisPrice(isCall, integral, strike, forward, p.τ, discountDf, p.vControl, p.pi)
 end
 
+#the range to start the extension from: the Heston rule can overshoot by orders of magnitude for a small tolerance, the integrand is then
+#not seen by the first panels. The other rules are bounds on the frequency, which the extension can not replace for a slowly decaying tail.
+startingTruncation(cf::CharFunc, τ::T, tol::T) where {T} = computeTruncation(cf, τ, tol)
+startingTruncation(cf::CharFunc{HestonParams{T}}, τ::T, tol::T) where {T} = computeTruncation(cf, τ, T(1e-2))
+
 #Filon with truncation: very fast, but truncation rule not always robust
 struct FilonCharFuncPricer{T}
     τ::T
@@ -151,10 +156,11 @@ struct FilonCharFuncPricer{T}
         qTol::T = T(1e-8),
         b::T = Base.zero(T),
         maxRecursionDepth::Int=16,
-        N=0
+        N=0,
+        maxTailIterations::Int=16,
     ) where {MAINT,CR, T}
         if b == 0
-            b = computeTruncation(p, τ, tTol)
+            b = N == 0 ? startingTruncation(p, τ, tTol) : computeTruncation(p, τ, tTol)
         end
         mcos = Dict{T,CR}()
         iPure = oneim(p)
@@ -185,38 +191,28 @@ struct FilonCharFuncPricer{T}
         local a = T(0)
         # local ic = integrateSimpsonGG(fcos, a,b, qTol, maxRecursionDepth=maxRecursionDepth)
         # local is = integrateSimpsonGG(fsin, a,b, qTol, maxRecursionDepth=maxRecursionDepth)
-        if N==0
-        modsim(fcos, a,b, qTol, maxRecursionDepth=24)
-        #modsim(fsin, a,b, qTol, maxRecursionDepth=20)      
+        if N == 0
+            ic = modsim(fcos, a, b, qTol, maxRecursionDepth=24)
+            #extend the range until the integral on the last panel is negligible
+            for tailIteration = 1:maxTailIterations
+                keysSorted = sort!(collect(keys(mcos)))
+                n = length(keysSorted)
+                an, cn, bn = keysSorted[n-2], keysSorted[n-1], keysSorted[n]
+                fan, fcn, fbn = mcos[an], mcos[cn], mcos[bn]
+                tailEstimate = simpsonAux(an, bn, real(fan), real(fbn), real(fcn))
+                tailEstimateS = simpsonAux(an, bn, imag(fan), imag(fbn), imag(fcn))
+                if (abs(tailEstimate) > tTol * max(T(1), abs(ic)) || abs(tailEstimateS) > tTol * max(T(1), abs(ic))) && tailIteration < maxTailIterations && isfinite(integrand(2b)) #stop at the last finite point
+                    a = b
+                    b *= 2
+                    ic += modsim(fcos, a, b, qTol, maxRecursionDepth=24, integralEstimate=ic)
+                else
+                    break
+                end
+            end
         else
             simpson(fcos, a, b, N)
         end
-        
-        #test if truncation is ok
-        local sortedKeys
         sortedKeys = sort!(collect(keys(mcos)))
-        # for tailIteration = 1:24
-        #     sortedKeys = sort!(collect(keys(mcos)))
-        #     n = length(sortedKeys)
-        #     an = sortedKeys[n-2]
-        #     cn = sortedKeys[n-1]
-        #     bn = sortedKeys[n]
-        #     fan = mcos[an]
-        #     fbn = mcos[bn]
-        #     fcn = mcos[cn]
-        #     tailEstimate = simpsonAux(an, bn, real(fan), real(fbn), real(fcn))
-        #     tailEstimateS = simpsonAux(an, bn, imag(fan), imag(fbn), imag(fcn))
-        #     #  println(tailIteration," tail ",tailEstimate," ", tailEstimate/(bn-an)," ", ic, " ",ic*qTol," b=",b," ",bn-an)
-        #     if (abs(tailEstimate) / min(T(1),bn - an) > tTol *  abs(ic)  || abs(tailEstimateS) / min(T(1),bn - an) > tTol *  abs(is)) && tailIteration < 24
-        #         a = b
-        #         b *= 2
-        #         depth = maxRecursionDepth #ceil(Int,maxRecursionDepth/2)
-        #         ic += integrateSimpsonGG(fcos, a, b, qTol, maxRecursionDepth=depth, integralEstimate=ic)
-        #         is += integrateSimpsonGG(fsin, a, b, qTol, maxRecursionDepth=depth, integralEstimate=is)
-        #     else
-        #         break
-        #     end
-        # end
         kcos = zeros(T, (3, length(mcos)))
         for (i, u) in enumerate(sortedKeys)
             v = mcos[u]

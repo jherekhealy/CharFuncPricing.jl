@@ -16,6 +16,7 @@ struct AdaptiveFlinnCharFuncPricer{T}
         p::CharFunc,
         τ::T;
         qTol::T = sqrt(eps(T)),
+        minDepth::Int = 3,
     ) where {T}
         mcos = Dict{T,Tuple{T,T,T,T}}()
         iPure = oneim(p)
@@ -56,8 +57,22 @@ struct AdaptiveFlinnCharFuncPricer{T}
             end
             return (v[2], v[4])
         end
-        integrateQuinticHermite(fcos, -one(T), one(T), qTol, 16)
-        integrateQuinticHermite(fsin, -one(T), one(T), qTol, 16)
+        integrateQuinticHermite(fcos, -one(T), one(T), qTol, 16, minDepth=minDepth)
+        integrateQuinticHermite(fsin, -one(T), one(T), qTol, 16, minDepth=minDepth)
+        #the panel ending at z=1 (x=+infty) is not part of the Flinn grid: extend the grid until what remains is negligible
+        zLast = maximum(keys(mcos))
+        while true
+            vLast = mcos[zLast]
+            if hypot(vLast[1], vLast[2]) * (1 - zLast) <= qTol
+                break
+            end
+            zNext = (1 + zLast) / 2
+            if zNext >= one(T)
+                break
+            end
+            mcos[zNext] = integrand(zNext)
+            zLast = zNext
+        end
         sortedKeys = sort!(collect(keys(mcos)))
         kcos = zeros(T, (5, length(mcos) * 2 - 1))
         #convert to original coordinate
@@ -205,7 +220,7 @@ struct FlinnCharFuncPricer{T}
             tailEstimate = quinticHermiteAux(an, bn, fan[1], fbn[1], fcn[1], fan[3], fbn[3], fcn[3])
             tailEstimateS = quinticHermiteAux(an, bn, fan[2], fbn[2], fcn[2], fan[4], fbn[4], fcn[4])
              #println(tailIteration," tail ",tailEstimate," ", tailEstimate/(bn-an)," ", ic, " ",ic*qTol," b=",b," ",bn-an," is=",is)
-            if (abs(tailEstimate)  > tTol *      max(T(1), abs(ic))  || abs(tailEstimateS) > tTol *  max(T(1),abs(is))) && tailIteration < 24
+            if (abs(tailEstimate)  > tTol *      max(T(1), abs(ic))  || abs(tailEstimateS) > tTol *  max(T(1),abs(is))) && tailIteration < maxTailIterations && all(isfinite, integrand(2b)) #stop at the last finite point
                 a = b
                 b *= 2
                 ic += integrateQuinticHermite(fcos, a, b, qTol, 16, integralEstimate=ic)
@@ -214,6 +229,7 @@ struct FlinnCharFuncPricer{T}
                 break
             end
         end
+        sortedKeys = sort!(collect(keys(mcos)))
         kcos = zeros(T, (5, length(mcos)))
         for (i, u) in enumerate(sortedKeys)
             v = mcos[u]

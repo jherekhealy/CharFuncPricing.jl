@@ -24,13 +24,11 @@ function evaluateLogCharFunc(cf::CharFunc{VarianceGammaParams{T},CR}, z::CT, τ:
     return logValue
 end
 
+#truncation of the Fourier integral of Filon: |φ(u)| decays as (νσ²u²/2)^(-τ/ν), and the integrand as |φ|/u²
 function computeTruncation(cf::CharFunc{VarianceGammaParams{T1}}, τ::T, tol::T) where {T,T1}
-    l = -log(tol) / 2
-    c1, c2, c4 = computeCumulants(cf, τ)
-    c2 = c2 + sqrt(abs(c4))
-    b = c1 + l * sqrt(abs(c2))
-    return b
+    p = model(cf)
+    e = τ / p.ν
+    return max(((p.ν * p.σ^2 / 2)^(-e) / tol)^(1 / (2 + 2e)), T(10))
 end
-
 
 asymptoticLogOrder(model::VarianceGammaParams{T}) where {T} = one(T) #not true but ok for SWIFT.

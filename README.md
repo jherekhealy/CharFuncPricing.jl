@@ -17,9 +17,10 @@ The code is not meant for production purpose and does not always cater for corne
 | Schöbel-Zhu (and with term-structure) | `SchobelZhuParams`, `SchobelZhuTSParams` | `DefaultCharFunc(params)` |
 | Stochastic volatility with correlated jumps | `SVCJParams` | `DefaultCharFunc(params)` |
 | CGMY, Variance Gamma | `CGMYParams`, `VarianceGammaParams` | `DefaultCharFunc(params)` |
+| Kou double exponential jumps, with Black or Heston diffusion | `KouParams(σ, λ, pUp, η1, η2)`, `HestonKouParams(heston, λ, pUp, η1, η2)` | `DefaultCharFunc(params)` |
 | Rough Heston | `RoughHestonParams(H, ρ, ν, varianceCurve)` | `PadeCharFunc(params)`, `AdamsCharFunc(params, n)` |
 
-For the Heston and Schöbel-Zhu models, `computeCumulants(params, τ)` provides the first, second and fourth cumulants through analytical formulas (for Heston with small `κτ`, a numerically stable ODE solution is used instead of the closed form).
+For the Heston, Schöbel-Zhu and Kou models, `computeCumulants(params, τ)` provides the first, second and fourth cumulants through analytical formulas (for Heston with small `κτ`, a numerically stable ODE solution is used instead of the closed form).
 
 ### Pricers
 | Method | Constructor |
@@ -29,6 +30,7 @@ For the Heston and Schöbel-Zhu models, `computeCumulants(params, τ)` provides 
 | Cos with automatic truncation and number of terms (Junike) | `makeCosCharFuncPricer(cf, τ, tol=1e-8)` |
 | Andersen-Lake contour integration | `ALCharFuncPricer(cf)` |
 | Adaptive Flinn / Filon quadratures | `AdaptiveFlinnCharFuncPricer(cf, τ)`, `AdaptiveFilonCharFuncPricer(cf, τ)` |
+| Flinn / Filon quadratures on a truncated range, extended until the tail is negligible | `FlinnCharFuncPricer(cf, τ, tTol=1e-10, qTol=1e-10)`, `FilonCharFuncPricer(cf, τ, tTol=1e-10, qTol=1e-10)` |
 | Joshi-Yang with Black-Scholes control variate | `JoshiYangCharFuncPricer(cf, τ)` |
 | Adaptive Filon-Clenshaw-Curtis, efficient for many strikes | `FCCCharFuncPricer(cf, τ, qTol=1e-10)` |
 | Swift (Shannon wavelets) | `makeSwiftCharFuncPricer(cf, τ, m, k)` |
@@ -168,13 +170,15 @@ The result is
 ## Adaptive Flinn
 This is the adaptive Flinn quadrature using the transformation to (-1, 1) interval. No truncation is involved.
 
+The local error estimate of the quintic Hermite rule can agree by accident on a panel that does not resolve the integrand. A panel is thus only accepted after `minDepth` bisections (3 by default). The grid is also extended towards the end point 1, which it never reaches otherwise, until the tail is below `qTol`.
+
 ### Float64 Example
 With a quadrature tolerance of 1e-8:
 ```julia
 pricer = AdaptiveFlinnCharFuncPricer(cf, τ, qTol = 1e-8)
 priceEuropean(pricer, false, strike, spot, τ, df)
 ```
-The result is `7.958878080086734`.
+The result is `7.958878113112817`.
 
 ### BigFloat Example
 The adaptive Flinn pricer works with high accuracy, but does not perform very well then. It is more intended for the calculation of prices with a absolute error tolerance of around 1e-8 or 1e-10.
@@ -186,8 +190,21 @@ The result is
 
 `7.958878113256768285213257572750089190600415520655780637746847607110529890012863`
 
-  and the effective accuracy is 3e-24. In total, `length(pricer.kcos[1,:])=31511` points are used, compared to 295 for an tolerance of 1e-10. For a tolerance of 1e-32, 450799 points are used. This means that algorithm is asymptotically linear on this example.
+  and the effective accuracy is 3e-24. In total, `length(pricer.kcos[1,:])=31511` points are used, compared to 359 for an tolerance of 1e-10. For a tolerance of 1e-32, 450799 points are used. This means that algorithm is asymptotically linear on this example.
 
+
+## Truncated Flinn and Filon
+`FlinnCharFuncPricer` and `FilonCharFuncPricer` apply the adaptive quintic Hermite rule and the adaptive Simpson rule to a truncated range `[0, b]`.
+The range is extended: while the estimate of the integral on the last panel exceeds `tTol * max(1, |I|)`, with `I` the integral so far, `b` is doubled and the adaptive rule is applied to the new interval.
+The extension stops at the last point where the characteristic function is finite, or after `maxTailIterations - 1` doublings (`maxTailIterations=16` by default).
+`b` starts from the truncation rule with a tolerance of 1e-2 (for `FilonCharFuncPricer`, only on Heston, other models start from `tTol`). A rule on its own can be too short or too long on extreme parameters: on the 273,000 options of the Andersen-Lake benchmark, the maximum error of the Flinn quadrature at a tolerance of 1e-10 falls from 19 to 9e-6 with the extension.
+
+```julia
+pricer = FlinnCharFuncPricer(cf, τ, tTol = 1e-8, qTol = 1e-8)
+priceEuropean(pricer, false, strike, spot, τ, df)
+```
+The result is `7.958878399536587`, an error of 3e-7, with `pricer.b = 21.19`. `FilonCharFuncPricer` integrates only the cosine part of the integrand to build its grid, and gives `7.95887744924228`, an error of 7e-7.
+The start of the range can also be set with the keyword `b`, and the extension is disabled with `maxTailIterations = 0`.
 
 ## Joshi-Yang integration
 A direct implementation of Joshi-Yang pricing with a Black-Scholes control variate integrated along the real axis combined with a Gauss-Laguerre integration is given.

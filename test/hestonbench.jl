@@ -66,7 +66,7 @@ end
     end
 
     pricesA0GL = zeros(length(paramset));
-    qgl = ModlobQuadrature(1e-10)
+    qgl = ModlobQuadrature(1e-8)
     elapsed = @elapsed begin
         local counter = 0
         for τ in τs, v0 in v0s, θ in θs, κ in κs, σ in σs, ρ in ρs
@@ -403,7 +403,7 @@ fpricesA2 = zeros(length(fparamset));
         end
     end
 
-    quadrature = ModlobQuadrature(1e-10)
+    quadrature = ModlobQuadrature(1e-8)
     fpricesA0L = zeros(length(fparamset))
     elapsed = @elapsed begin
         local counter = 0

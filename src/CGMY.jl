@@ -13,6 +13,17 @@ end
 
 asymptoticLogOrder(model::CGMYParams{T}) where {T} = model.Y
 
+#truncation of the Fourier integral of Filon: log|φ(u)| ~ -σ²τu²/2 - c|u|^Y + d only for |u| well beyond G and M, with a
+#constant d that may be large (and singular at Y = 1): the first u, growing geometrically from 10, where the integrand
+#|φ(u - i/2)|/(u² + 1/4) is below tol (|φ| decreases in |u|), at most 1/√tol
+function computeTruncation(cf::CharFunc{CGMYParams{T1}}, τ::T, tol::T) where {T,T1}
+    u, umax = T(10), 1 / sqrt(tol)
+    while u < umax && abs(evaluateCharFunc(cf, u - oneim(cf) / 2, τ)) / (u^2 + one(T) / 4) > tol
+        u *= T(1.25)
+    end
+    return min(u, umax)
+end
+
 DefaultCharFunc(params::CGMYParams{Float64}) = DefaultCharFunc{CGMYParams{Float64},Complex{Float64}}(params)
 
 @inline function evaluateCharFunc(p::CharFunc{CGMYParams{T},CR}, z::CT, τ::T)::CR where {T,CR,CT}
